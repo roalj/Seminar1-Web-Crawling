@@ -1,11 +1,10 @@
 import urllib.robotparser
+from queue import Queue
 from urllib.request import urlparse, urljoin
 import requests
 import psycopg2
 from bs4 import BeautifulSoup
 import re
-from urllib3 import request
-
 
 # cur.execute("SELECT * from crawldb.data_type")
 #
@@ -14,6 +13,9 @@ from urllib3 import request
 #
 # cur.close()
 # conn.close()
+url_queue = Queue()
+already_visited_sites = []
+
 
 def add_site_to_db(base_url, robots_content, sitemap_content):
     cur = conn.cursor()
@@ -22,7 +24,7 @@ def add_site_to_db(base_url, robots_content, sitemap_content):
     cur.execute(sql, (base_url,))
     record_exists = cur.fetchone()
 
-    #add site if not yet exists
+    # add site if not yet exists
     if not record_exists:
         cur.execute("INSERT INTO crawldb.site VALUES(DEFAULT, %s, %s, %s) RETURNING id",
                     (base_url, robots_content, sitemap_content))
@@ -35,6 +37,12 @@ def add_site_to_db(base_url, robots_content, sitemap_content):
     return id
 
 
+def start_crawling(site_id, url, delay):
+    print(delay)
+    print(url)
+    search_next()
+
+
 def check_robots(url):
     base_url_parser = urlparse(url)
 
@@ -43,17 +51,31 @@ def check_robots(url):
     rp = urllib.robotparser.RobotFileParser()
 
     robots_url = urljoin(base_url, '/robots.txt')
-    rp.set_url(robots_url)
-    rp.read()
 
-    # print(rp.site_maps())
-    if rp is None:
-        add_site_to_db(base_url, "", "")
+    html = requests.get(robots_url)
+
+    # we don't want 404 to be stored in the db
+    if html.status_code != 404:
+        rp.set_url(robots_url)
+        rp.read()
+        print(html.status_code)
+
+        # print(rp.site_maps())
+        if rp is None:
+            id = add_site_to_db(base_url, "", "")
+            start_crawling(id, url, 5)
+        else:
+            # TODO rp.site_maps() -> only available in pyhton 3.8, unable to install psycopg2 on pyhton 3.8 with windows
+            soup = BeautifulSoup(requests.get(robots_url).content, 'html.parser')
+            id = add_site_to_db(base_url, str(soup), "")
+            if rp.crawl_delay("*") is None:
+                start_crawling(id, url, 5)
+            else:
+                start_crawling(id, url, rp.crawl_delay("*"))
     else:
-        #TODO rp.site_maps() -> only available in pyhton 3.8, unable to install psycopg2 on pyhton 3.8 with windows
-        soup = BeautifulSoup(requests.get(robots_url).content, 'html.parser')
-        print(str(soup))
-        add_site_to_db(base_url, str(soup), "")
+        id = add_site_to_db(base_url, "", "")
+        start_crawling(id, url, 0)
+
 
 
 def search_page_urls_and_images(url):
@@ -100,6 +122,21 @@ def search_page_urls_and_images(url):
     return urls
 
 
+def search_next():
+    if url_queue.empty():
+        return
+
+    url_to_be_searched = url_queue.get(block=True)
+
+    if url_to_be_searched in already_visited_sites:
+        print("Already visited")
+        search_next()
+    else:
+        already_visited_sites.append(url_to_be_searched)
+        print(url_to_be_searched)
+        check_robots(url_to_be_searched)
+
+
 global conn
 # connect to the db
 conn = psycopg2.connect(
@@ -112,5 +149,13 @@ conn = psycopg2.connect(
 conn.autocommit = True
 
 # urls = search_page_urls_and_images("https://www.24ur.com/")
-#TODO -> dobimo ID, shrani stran v tabelo page
-check_robots("https://www.gov.si/")
+# TODO -> dobimo ID, shrani stran v tabelo page
+# check_robots("https://www.gov.si/")
+
+initial_seed = ['https://www.gov.si/', 'http://evem.gov.si/', 'https://e-uprava.gov.si/',
+                'https://www.e-prostor.gov.si/', 'https://www.gov.si/']
+
+for initial_url in initial_seed:
+    url_queue.put(initial_url)
+
+search_next()
