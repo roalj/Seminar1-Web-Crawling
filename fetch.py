@@ -4,6 +4,7 @@ from urllib.request import urlparse, urljoin
 import requests
 import psycopg2
 from bs4 import BeautifulSoup
+import hashlib
 import re
 
 # cur.execute("SELECT * from crawldb.data_type")
@@ -38,8 +39,23 @@ def add_site_to_db(base_url, robots_content, sitemap_content):
 
 
 def start_crawling(site_id, url, delay):
-    print(delay)
-    print(url)
+    # print(site_id)
+    # print(url)
+    # print(delay)
+
+    crawling_page = requests.get(url)
+
+    cur = conn.cursor()
+    #check if html page
+    if 'html' in crawling_page.headers['content-type']:
+        page_hash = hashlib.sha256(crawling_page.text.encode('utf-8')).hexdigest()
+        cur.execute("INSERT INTO crawldb.page VALUES(DEFAULT, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP, %s)",
+                    (site_id, 'HTML', url, crawling_page.text, crawling_page.status_code, page_hash))
+    else:
+        page_hash = hashlib.sha256(crawling_page.text.encode('utf-8')).hexdigest()
+        cur.execute("INSERT INTO crawldb.page VALUES(DEFAULT, %s, %s, %s, NULL, %s, CURRENT_TIMESTAMP, %s)",
+                    (site_id, 'BINARY', url, crawling_page.status_code, page_hash))
+
     search_next()
 
 
@@ -58,7 +74,6 @@ def check_robots(url):
     if html.status_code != 404:
         rp.set_url(robots_url)
         rp.read()
-        print(html.status_code)
 
         # print(rp.site_maps())
         if rp is None:
@@ -74,7 +89,7 @@ def check_robots(url):
                 start_crawling(id, url, rp.crawl_delay("*"))
     else:
         id = add_site_to_db(base_url, "", "")
-        start_crawling(id, url, 0)
+        start_crawling(id, url, 5)
 
 
 
@@ -129,11 +144,9 @@ def search_next():
     url_to_be_searched = url_queue.get(block=True)
 
     if url_to_be_searched in already_visited_sites:
-        print("Already visited")
         search_next()
     else:
         already_visited_sites.append(url_to_be_searched)
-        print(url_to_be_searched)
         check_robots(url_to_be_searched)
 
 
