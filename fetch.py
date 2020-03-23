@@ -37,6 +37,7 @@ def add_site_to_db(base_url, robots_content, sitemap_content):
 
     return id
 
+
 def start_crawling(site_id, url, delay):
     # print(site_id)
     # print(url)
@@ -45,7 +46,7 @@ def start_crawling(site_id, url, delay):
     crawling_page = requests.get(url)
     page_hash = hashlib.sha256(crawling_page.text.encode('utf-8')).hexdigest()
 
-    #check if page hash already exists
+    # check if page hash already exists
     cur = conn.cursor()
     sql = "SELECT id FROM crawldb.page where hash = %s"
     cur.execute(sql, (page_hash,))
@@ -54,11 +55,17 @@ def start_crawling(site_id, url, delay):
     if not record_exists:
         # check if html page
         if 'html' in crawling_page.headers['content-type']:
-            cur.execute("INSERT INTO crawldb.page VALUES(DEFAULT, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP, %s)",
-                        (site_id, 'HTML', url, crawling_page.text, crawling_page.status_code, page_hash))
+            cur.execute(
+                "INSERT INTO crawldb.page VALUES(DEFAULT, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP, %s) RETURNING id",
+                (site_id, 'HTML', url, crawling_page.text, crawling_page.status_code, page_hash))
+            page_id = cur.fetchone()[0]
         else:
-            cur.execute("INSERT INTO crawldb.page VALUES(DEFAULT, %s, %s, %s, NULL, %s, CURRENT_TIMESTAMP, %s)",
-                        (site_id, 'BINARY', url, crawling_page.status_code, page_hash))
+            cur.execute(
+                "INSERT INTO crawldb.page VALUES(DEFAULT, %s, %s, %s, NULL, %s, CURRENT_TIMESTAMP, %s) RETURNING id",
+                (site_id, 'BINARY', url, crawling_page.status_code, page_hash))
+            page_id = cur.fetchone()
+
+        search_page_urls_and_images(url, page_id)
 
     search_next()
 
@@ -96,8 +103,9 @@ def check_robots(url):
         start_crawling(id, url, 5)
 
 
-
-def search_page_urls_and_images(url):
+# TODO save urls on the page to link table
+# TODO check if url is already present in queue
+def search_page_urls_and_images(url, page_id):
     soup = BeautifulSoup(requests.get(url).content, 'html.parser')
     urls = set()
 
