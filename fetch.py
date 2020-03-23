@@ -37,24 +37,28 @@ def add_site_to_db(base_url, robots_content, sitemap_content):
 
     return id
 
-#TODO check if page hash already exists
 def start_crawling(site_id, url, delay):
     # print(site_id)
     # print(url)
     # print(delay)
 
     crawling_page = requests.get(url)
+    page_hash = hashlib.sha256(crawling_page.text.encode('utf-8')).hexdigest()
 
+    #check if page hash already exists
     cur = conn.cursor()
-    #check if html page
-    if 'html' in crawling_page.headers['content-type']:
-        page_hash = hashlib.sha256(crawling_page.text.encode('utf-8')).hexdigest()
-        cur.execute("INSERT INTO crawldb.page VALUES(DEFAULT, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP, %s)",
-                    (site_id, 'HTML', url, crawling_page.text, crawling_page.status_code, page_hash))
-    else:
-        page_hash = hashlib.sha256(crawling_page.text.encode('utf-8')).hexdigest()
-        cur.execute("INSERT INTO crawldb.page VALUES(DEFAULT, %s, %s, %s, NULL, %s, CURRENT_TIMESTAMP, %s)",
-                    (site_id, 'BINARY', url, crawling_page.status_code, page_hash))
+    sql = "SELECT id FROM crawldb.page where hash = %s"
+    cur.execute(sql, (page_hash,))
+    record_exists = cur.fetchone()
+
+    if not record_exists:
+        # check if html page
+        if 'html' in crawling_page.headers['content-type']:
+            cur.execute("INSERT INTO crawldb.page VALUES(DEFAULT, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP, %s)",
+                        (site_id, 'HTML', url, crawling_page.text, crawling_page.status_code, page_hash))
+        else:
+            cur.execute("INSERT INTO crawldb.page VALUES(DEFAULT, %s, %s, %s, NULL, %s, CURRENT_TIMESTAMP, %s)",
+                        (site_id, 'BINARY', url, crawling_page.status_code, page_hash))
 
     search_next()
 
