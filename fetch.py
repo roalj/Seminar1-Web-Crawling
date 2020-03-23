@@ -37,7 +37,7 @@ def add_site_to_db(base_url, robots_content, sitemap_content):
 
     return id
 
-
+#TODO check if page hash already exists
 def start_crawling(site_id, url, delay):
     # print(site_id)
     # print(url)
@@ -160,10 +160,6 @@ conn = psycopg2.connect(
 )
 
 conn.autocommit = True
-
-# urls = search_page_urls_and_images("https://www.24ur.com/")
-# TODO -> dobimo ID, shrani stran v tabelo page
-# check_robots("https://www.gov.si/")
 
 initial_seed = ['https://www.gov.si/', 'http://evem.gov.si/', 'https://e-uprava.gov.si/',
                 'https://www.e-prostor.gov.si/', 'https://www.gov.si/']
