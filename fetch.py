@@ -10,7 +10,7 @@ import re
 
 url_queue = Queue()
 already_visited_sites = []
-
+content_types = ['PDF', 'DOC', 'DOCX', 'PPT', 'PPTX']
 
 def add_site_to_db(base_url, robots_content, sitemap_content):
     cur = conn.cursor()
@@ -39,6 +39,11 @@ def start_crawling(site_id, url, delay):
     # check if page hash already exists
     cur = conn.cursor()
     sql = "SELECT id FROM crawldb.page where hash = %s"
+    """
+    cur.execute("DELETE FROM crawldb.image")
+    cur.execute("DELETE FROM crawldb.page_data")
+    cur.execute("DELETE FROM crawldb.page")
+    """
     cur.execute(sql, (page_hash,))
     record_exists = cur.fetchone()
 
@@ -67,6 +72,11 @@ def start_crawling(site_id, url, delay):
 
     search_next()
 
+def is_content_file_url(link):
+    for format in content_types:
+        if link.upper().endswith(format):
+            return format
+    return False
 
 def check_robots(url):
     base_url_parser = urlparse(url)
@@ -107,7 +117,7 @@ def check_robots(url):
 def search_page_urls_and_images(url, page_id, crawling_page):
     soup = BeautifulSoup(crawling_page.content, 'html.parser')
     urls = set()
-
+    cur = conn.cursor()
     # get all links
     for link in soup.findAll('a'):
         parsing_link = link.get('href')
@@ -118,12 +128,16 @@ def search_page_urls_and_images(url, page_id, crawling_page):
         combined_link = urljoin(url, parsing_link)
         parsed_href = urlparse(combined_link)
 
+
+        is_content_url = is_content_file_url(combined_link)
+        if is_content_url:
+            cur.execute("""INSERT INTO page_data (page_id, data_type_code) VALUES (%s, %s)""", (page_id, is_content_url,))
         # from ParseResult get link to be searched if gov.si
-        if ('gov.si' in parsed_href.netloc):
+        elif ('gov.si' in parsed_href.netloc):
             clean_link = parsed_href.scheme + "://" + parsed_href.netloc + parsed_href.path
             urls.add(clean_link) if clean_link not in urls else urls
 
-    cur = conn.cursor()
+    #cur = conn.cursor()
     # get all images
     for image in soup.findAll('img'):
 
@@ -147,6 +161,7 @@ def search_page_urls_and_images(url, page_id, crawling_page):
 
     cur.close()
 
+    cur.close()
     return urls
 
 
@@ -167,8 +182,8 @@ global conn
 # connect to the db
 conn = psycopg2.connect(
     host='localhost',
-    database='crawler',
-    user='postgres',
+    database='crawldb',
+    user='crawldb',
     password='admin'
 )
 
@@ -176,7 +191,9 @@ conn.autocommit = True
 
 initial_seed = ['https://www.gov.si/', 'http://evem.gov.si/', 'https://e-uprava.gov.si/',
                 'https://www.e-prostor.gov.si/', 'https://www.gov.si/']
-
+"""
+initial_seed = ['https://www.e-prostor.gov.si/izobrazevanja/izobrazevanje-geodetov-po-zgeod-1/', 'https://www.gov.si/']
+"""
 for initial_url in initial_seed:
     url_queue.put(initial_url)
 

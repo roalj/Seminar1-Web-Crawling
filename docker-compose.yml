@@ -1,0 +1,14 @@
+version: '3.1'
+
+services:
+
+  db:
+    image: postgres
+    restart: always
+    environment:
+      POSTGRES_PASSWORD: admin
+      POSTGRES_USER: crawldb
+    volumes:
+    - ./db/init-scripts:/docker-entrypoint-initdb.d/
+    ports:
+      - 5432:5432
