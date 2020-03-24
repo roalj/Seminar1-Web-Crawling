@@ -1,3 +1,4 @@
+import time
 import urllib.robotparser
 from queue import Queue
 from urllib.request import urlparse, urljoin
@@ -7,13 +8,6 @@ from bs4 import BeautifulSoup
 import hashlib
 import re
 
-# cur.execute("SELECT * from crawldb.data_type")
-#
-# for r in cur.fetchall():
-#     print({r[0]})
-#
-# cur.close()
-# conn.close()
 url_queue = Queue()
 already_visited_sites = []
 
@@ -39,10 +33,6 @@ def add_site_to_db(base_url, robots_content, sitemap_content):
 
 
 def start_crawling(site_id, url, delay):
-    # print(site_id)
-    # print(url)
-    # print(delay)
-
     crawling_page = requests.get(url)
     page_hash = hashlib.sha256(crawling_page.text.encode('utf-8')).hexdigest()
 
@@ -67,7 +57,10 @@ def start_crawling(site_id, url, delay):
             page_id = cur.fetchone()
             cur.close()
 
-        new_urls = search_page_urls_and_images(url, page_id)
+        new_urls = search_page_urls_and_images(url, page_id, crawling_page)
+
+        # wait after every search
+        time.sleep(delay)
 
         for new_url in new_urls:
             url_queue.put(new_url)
@@ -86,19 +79,20 @@ def check_robots(url):
 
     html = requests.get(robots_url)
 
+    # wait 5 seconds
+    time.sleep(5)
+
     # we don't want 404 to be stored in the db
     if html.status_code != 404:
         rp.set_url(robots_url)
         rp.read()
 
-        # print(rp.site_maps())
         if rp is None:
             id = add_site_to_db(base_url, "", "")
             start_crawling(id, url, 5)
         else:
             # TODO rp.site_maps() -> only available in pyhton 3.8, unable to install psycopg2 on pyhton 3.8 with windows
-            soup = BeautifulSoup(requests.get(robots_url).content, 'html.parser')
-            id = add_site_to_db(base_url, str(soup), "")
+            id = add_site_to_db(base_url, html.content, "")
             if rp.crawl_delay("*") is None:
                 start_crawling(id, url, 5)
             else:
@@ -110,8 +104,8 @@ def check_robots(url):
 
 # TODO save urls on the page to link table
 # TODO check if url is already present in queue
-def search_page_urls_and_images(url, page_id):
-    soup = BeautifulSoup(requests.get(url).content, 'html.parser')
+def search_page_urls_and_images(url, page_id, crawling_page):
+    soup = BeautifulSoup(crawling_page.content, 'html.parser')
     urls = set()
 
     # get all links
@@ -127,7 +121,7 @@ def search_page_urls_and_images(url, page_id):
         # from ParseResult get link to be searched if gov.si
         if ('gov.si' in parsed_href.netloc):
             clean_link = parsed_href.scheme + "://" + parsed_href.netloc + parsed_href.path
-            urls.add(combined_link) if combined_link not in urls else urls
+            urls.add(clean_link) if clean_link not in urls else urls
 
     cur = conn.cursor()
     # get all images
@@ -144,7 +138,6 @@ def search_page_urls_and_images(url, page_id):
         # some images started on "data*"
         if parsed_image.scheme in ['http', 'https', 'www']:
             clean_url = parsed_image.scheme + "://" + parsed_image.netloc + parsed_image.path
-            print(parsed_image.scheme)
 
             filename = clean_url.split('/')[-1].split('.')[0]
             file_extension = clean_url.split('/')[-1].split('.')[1]
