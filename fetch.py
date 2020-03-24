@@ -150,7 +150,7 @@ def search_page_urls_and_images(url, page_id, crawling_page):
         parsed_image = urlparse(combined_link)
 
         # some images started on "data*"
-        if parsed_image.scheme in ['http', 'https', 'www']:
+        if parsed_image.scheme in ['http', 'https', 'www', '']:
             clean_url = parsed_image.scheme + "://" + parsed_image.netloc + parsed_image.path
 
             filename = clean_url.split('/')[-1].split('.')[0]
