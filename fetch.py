@@ -59,13 +59,18 @@ def start_crawling(site_id, url, delay):
                 "INSERT INTO crawldb.page VALUES(DEFAULT, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP, %s) RETURNING id",
                 (site_id, 'HTML', url, crawling_page.text, crawling_page.status_code, page_hash))
             page_id = cur.fetchone()[0]
+            cur.close()
         else:
             cur.execute(
                 "INSERT INTO crawldb.page VALUES(DEFAULT, %s, %s, %s, NULL, %s, CURRENT_TIMESTAMP, %s) RETURNING id",
                 (site_id, 'BINARY', url, crawling_page.status_code, page_hash))
             page_id = cur.fetchone()
+            cur.close()
 
-        search_page_urls_and_images(url, page_id)
+        new_urls = search_page_urls_and_images(url, page_id)
+
+        for new_url in new_urls:
+            url_queue.put(new_url)
 
     search_next()
 
@@ -136,15 +141,18 @@ def search_page_urls_and_images(url, page_id):
         combined_link = urljoin(url, image_source)
         parsed_image = urlparse(combined_link)
 
-        clean_url = parsed_image.scheme + "://" + parsed_image.netloc + parsed_image.path
+        # some images started on "data*"
+        if parsed_image.scheme in ['http', 'https', 'www']:
+            clean_url = parsed_image.scheme + "://" + parsed_image.netloc + parsed_image.path
+            print(parsed_image.scheme)
 
-        filename = clean_url.split('/')[-1].split('.')[0]
-        file_extension = clean_url.split('/')[-1].split('.')[1]
+            filename = clean_url.split('/')[-1].split('.')[0]
+            file_extension = clean_url.split('/')[-1].split('.')[1]
 
-        cur.execute("INSERT INTO crawldb.image VALUES(DEFAULT, %s, %s, %s, %s, CURRENT_TIMESTAMP)",
-                    (1, filename, file_extension, "BINARY"))
+            cur.execute("INSERT INTO crawldb.image VALUES(DEFAULT, %s, %s, %s, %s, CURRENT_TIMESTAMP)",
+                        (page_id, filename, file_extension, "BINARY"))
 
-        cur.close()
+    cur.close()
 
     return urls
 
