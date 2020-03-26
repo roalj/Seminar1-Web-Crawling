@@ -238,16 +238,16 @@ number_of_workers = 4
 workQueue = Queue()
 threads = []
 
+# Fill the queue
+for word in initial_seed:
+    workQueue.put(word)
+    already_visited_sites.add(word)
+
 # Create new threads
 for index in range(number_of_workers):
     thread = MyThread(index + 1, "Thread" + str(index), workQueue)
     thread.start()
     threads.append(thread)
-
-# Fill the queue
-for word in initial_seed:
-    workQueue.put(word)
-    already_visited_sites.add(word)
 
 
 def is_any_thread_active(threads):
