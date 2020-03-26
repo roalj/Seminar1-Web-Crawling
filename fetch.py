@@ -23,6 +23,7 @@ def is_site_in_db(base_url, cur):
 # test
 def delete_all_data():
     cur = conn.cursor()
+    cur.execute("DELETE FROM crawldb.link")
     cur.execute("DELETE FROM crawldb.image")
     cur.execute("DELETE FROM crawldb.page_data")
     cur.execute("DELETE FROM crawldb.page")
@@ -37,13 +38,13 @@ def is_page_alread_saved(url, cur):
     return record_exists
 
 
-def add_new_domains_to_queue(url, new_urls):
+def add_new_domains_to_queue(url, new_urls, page_id):
     base_url = get_base_url(url)
     for a in new_urls.copy():
         if not a.startswith(base_url):
             new_link = get_base_url(a)
             if new_link not in already_visited_sites:
-                workQueue.put(new_link)
+                workQueue.put(Page(new_link, page_id))
                 already_visited_sites.add(new_link)
             new_urls.remove(a)
     return new_urls
@@ -52,7 +53,8 @@ def add_new_domains_to_queue(url, new_urls):
 def start_crawling(site_id, queue_set, delay, driver, threadName):
     if not queue_set:
         return
-    url = queue_set.pop()
+    page = queue_set.pop()
+    url = page.url
     print("checking url : ", threadName, " ", url)
     crawling_page = SeleniumHelper(url, driver)
     page_hash = hashlib.sha256(crawling_page.text.encode('utf-8')).hexdigest()
@@ -72,21 +74,33 @@ def start_crawling(site_id, queue_set, delay, driver, threadName):
                 "INSERT INTO crawldb.page VALUES(DEFAULT, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP, %s) RETURNING id",
                 (site_id, 'HTML', url, crawling_page.text, crawling_page.status_code, page_hash))
             page_id = cur.fetchone()[0]
-            cur.close()
         else:
             cur.execute(
                 "INSERT INTO crawldb.page VALUES(DEFAULT, %s, %s, %s, NULL, %s, CURRENT_TIMESTAMP, %s) RETURNING id",
                 (site_id, 'BINARY', url, crawling_page.status_code, page_hash))
-            page_id = cur.fetchone()
-            cur.close()
+            page_id = cur.fetchone()[0]
+
+        if page.source_page_id is not None:
+            print("link from: " + str(page.source_page_id) + " , to: " + str(page_id))
+            cur.execute(
+                "INSERT INTO crawldb.link VALUES(%s, %s)",
+                (page.source_page_id, page_id)
+            )
+        cur.close()
+
 
         new_urls = search_page_urls_and_images(url, page_id, crawling_page)
-        new_urls1 = add_new_domains_to_queue(url, new_urls)
-        # wait after every search
+        new_urls1 = add_new_domains_to_queue(url, new_urls, page_id)
 
-        queue_set |= new_urls1
+        new_pages = set()
+        for new_url in new_urls1:
+            new_pages.add(Page(new_url, page_id))
+
+
+        queue_set |= new_pages
         # for new_url in new_urls:
     #     url_queue.put(new_url)
+
     time.sleep(delay)
     start_crawling(site_id, queue_set, delay, driver, threadName)
 
@@ -170,8 +184,8 @@ global conn
 # connect to the db
 conn = psycopg2.connect(
     host='localhost',
-    database='crawldb',
-    user='crawldb',
+    database='crawler',
+    user='postgres',
     password='admin'
 )
 conn.autocommit = True
@@ -179,6 +193,10 @@ conn.autocommit = True
 initial_seed = ['https://www.gov.si/', 'http://evem.gov.si/', 'https://e-uprava.gov.si/',
                 'https://www.e-prostor.gov.si/', 'https://www.gov.si/']
 
+class Page:
+    def __init__(self, url, source_page_id):
+        self.url = url
+        self.source_page_id = source_page_id
 
 class MyThread(threading.Thread):
     def __init__(self, threadID, name, q):
@@ -217,11 +235,12 @@ def process_data(thread, threadName, q):
         driver = SeleniumHelper.init_driver()
         if not workQueue.empty():
             thread.active = True
-            url = q.get()
+            page = q.get()
+            url = page.url
             print("%s processing %s" % (threadName, url))
             site_id = add_site(url, cur)
             if site_id:
-                start_crawling(site_id, {url}, 5, driver, threadName)
+                start_crawling(site_id, {page}, 5, driver, threadName)
             current_searched_websites.remove(url)
         else:
             thread.active = False
@@ -238,7 +257,7 @@ threads = []
 
 # Fill the queue
 for word in initial_seed:
-    workQueue.put(word)
+    workQueue.put(Page(word, None))
     already_visited_sites.add(word)
 
 # Create new threads
