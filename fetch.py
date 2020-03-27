@@ -59,15 +59,13 @@ def start_crawling(site_id, queue_set, delay, driver, threadName):
 
     # check if page hash already exists
     cur = conn.cursor()
-    if is_page_alread_saved(url, cur):
-        return
 
     sql = "SELECT id FROM crawldb.page where hash = %s"
 
     cur.execute(sql, (page_hash,))
     record_exists = cur.fetchone()
 
-    if not record_exists:
+    if not record_exists and not is_page_alread_saved(url, cur):
         # check if html page
         if 'html' in crawling_page.content_type:
             cur.execute(
