@@ -10,6 +10,7 @@ from db.SeleniumHelper import SeleniumHelper
 
 url_queue = Queue()
 already_visited_sites = set()
+already_visited_pages = set()
 content_types = ['PDF', 'DOC', 'DOCX', 'PPT', 'PPTX']
 current_searched_websites = []
 
@@ -29,16 +30,15 @@ def delete_all_data():
     cur.execute("DELETE FROM crawldb.site")
     cur.close
 
-
 def is_page_alread_saved(url, cur):
     sql = "SELECT id FROM crawldb.page where url = %s"
     cur.execute(sql, (url,))
     record_exists = cur.fetchone()
     return record_exists
 
-
 def add_new_domains_to_queue(url, new_urls):
     base_url = get_base_url(url)
+    sub_domain_urls = set()
     for a in new_urls.copy():
         if not a.startswith(base_url):
             new_link = get_base_url(a)
@@ -46,24 +46,37 @@ def add_new_domains_to_queue(url, new_urls):
                 workQueue.put(new_link)
                 already_visited_sites.add(new_link)
             new_urls.remove(a)
-    return new_urls
+        else:
+            if a not in already_visited_pages:
+                sub_domain_urls.add(a)
 
+    return sub_domain_urls
 
 def start_crawling(site_id, queue_set, delay, driver, threadName):
     if not queue_set:
         return
+    start_time = time.time()
     url = queue_set.pop()
     print("checking url : ", threadName, " ", url)
-    crawling_page = SeleniumHelper(url, driver)
-    page_hash = hashlib.sha256(crawling_page.text.encode('utf-8')).hexdigest()
+    try:
+        crawling_page = SeleniumHelper(url, driver)
+    except:
+        crawling_page = None
+
+    print("--- %s AFTER SELENIUm, thread name: %s ---" % (time.time() - start_time, threadName))
+
 
     # check if page hash already exists
     cur = conn.cursor()
-    if is_page_alread_saved(url, cur):
+
+    if crawling_page is None or is_page_alread_saved(url, cur):
+        time.sleep(delay)
+        print("--- %s seconds, thread name: %s ---" % (time.time() - start_time, threadName))
+        start_crawling(site_id, queue_set, delay, driver, threadName)
         return
 
     sql = "SELECT id FROM crawldb.page where hash = %s"
-
+    page_hash = hashlib.sha256(crawling_page.text.encode('utf-8')).hexdigest()
     cur.execute(sql, (page_hash,))
     record_exists = cur.fetchone()
 
@@ -82,14 +95,16 @@ def start_crawling(site_id, queue_set, delay, driver, threadName):
             page_id = cur.fetchone()
             cur.close()
 
+        already_visited_pages.add(url)
         new_urls = search_page_urls_and_images(url, page_id, crawling_page)
-        new_urls1 = add_new_domains_to_queue(url, new_urls)
+        sub_domain_urls = add_new_domains_to_queue(url, new_urls)
         # wait after every search
 
-        queue_set |= new_urls1
+        queue_set |= sub_domain_urls
         # for new_url in new_urls:
     #     url_queue.put(new_url)
     time.sleep(delay)
+    print("--- %s seconds, thread name: %s ---" % (time.time() - start_time, threadName))
     start_crawling(site_id, queue_set, delay, driver, threadName)
 
 
@@ -181,7 +196,6 @@ conn.autocommit = True
 initial_seed = ['https://www.gov.si/', 'http://evem.gov.si/', 'https://e-uprava.gov.si/',
                 'https://www.e-prostor.gov.si/', 'https://www.gov.si/']
 
-
 class MyThread(threading.Thread):
     def __init__(self, threadID, name, q):
         threading.Thread.__init__(self)
@@ -224,7 +238,7 @@ def process_data(thread, threadName, q):
             site_id = add_site(url, cur)
             if site_id:
                 start_crawling(site_id, {url}, 5, driver, threadName)
-            current_searched_websites.remove(url)
+            #current_searched_websites.remove(url)
         else:
             thread.active = False
         driver.close()
@@ -246,8 +260,8 @@ for index in range(number_of_workers):
 
 # Fill the queue
 for word in initial_seed:
-    workQueue.put(word)
     already_visited_sites.add(word)
+    workQueue.put(word)
 
 
 def is_any_thread_active(threads):
