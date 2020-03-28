@@ -15,8 +15,8 @@ current_searched_websites = []
 
 
 def is_site_in_db(base_url, cur):
-    sql = "SELECT id FROM crawldb.site where domain = %s"
-    cur.execute(sql, (base_url,))
+    sql = "SELECT id FROM crawldb.site where domain = %s or domain = %s"
+    cur.execute(sql, (base_url,change_to_http(base_url),))
     record_exists = cur.fetchone()
     return record_exists
 
@@ -32,8 +32,8 @@ def delete_all_data():
 
 
 def is_page_alread_saved(url, cur):
-    sql = "SELECT id FROM crawldb.page where url = %s"
-    cur.execute(sql, (url,))
+    sql = "SELECT id FROM crawldb.page where url = %s or url = %s"
+    cur.execute(sql, (url, change_to_http(url),))
     record_exists = cur.fetchone()
     return record_exists
 
@@ -110,6 +110,11 @@ def is_content_file_url(link):
             return format
     return False
 
+def change_to_http(url):
+    if url.startswith('https://'):
+        return url.replace('https://', 'http://', 1)
+    else:
+        return url
 
 def get_base_url(url):
     base_url_parser = urlparse(url)
