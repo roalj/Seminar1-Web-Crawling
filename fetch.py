@@ -52,18 +52,19 @@ def add_new_domains_to_queue(url, new_urls):
 
     return sub_domain_urls
 
-def start_crawling(site_id, queue_set, delay, driver, threadName):
+def start_crawling(site_id, queue_set, delay, threadName):
     if not queue_set:
         return
     start_time = time.time()
     url = queue_set.pop()
     print("checking url : ", threadName, " ", url)
     try:
-        crawling_page = SeleniumHelper(url, driver)
-    except:
+        crawling_page = SeleniumHelper(url, threadName)
+    except Exception as e:
+        print(e)
+        print("SELENIUM FAILED TO LOAD ", threadName)
         crawling_page = None
 
-    print("--- %s AFTER SELENIUm, thread name: %s ---" % (time.time() - start_time, threadName))
 
 
     # check if page hash already exists
@@ -71,14 +72,16 @@ def start_crawling(site_id, queue_set, delay, driver, threadName):
 
     if crawling_page is None or is_page_alread_saved(url, cur):
         time.sleep(delay)
-        print("--- %s seconds, thread name: %s ---" % (time.time() - start_time, threadName))
-        start_crawling(site_id, queue_set, delay, driver, threadName)
+        print("--- %s seconds, thread name NONE: %s ---" % (time.time() - start_time, threadName))
+        start_crawling(site_id, queue_set, delay, threadName)
         return
 
     sql = "SELECT id FROM crawldb.page where hash = %s"
     page_hash = hashlib.sha256(crawling_page.text.encode('utf-8')).hexdigest()
     cur.execute(sql, (page_hash,))
     record_exists = cur.fetchone()
+
+    merge_url_time = time.time()
 
     if not record_exists:
         # check if html page
@@ -94,18 +97,17 @@ def start_crawling(site_id, queue_set, delay, driver, threadName):
                 (site_id, 'BINARY', url, crawling_page.status_code, page_hash))
             page_id = cur.fetchone()
             cur.close()
-
         already_visited_pages.add(url)
+
         new_urls = search_page_urls_and_images(url, page_id, crawling_page)
         sub_domain_urls = add_new_domains_to_queue(url, new_urls)
-        # wait after every search
-
         queue_set |= sub_domain_urls
+    #print("MERGE URL TIME %s length: %s " % (time.time() - merge_url_time, len(queue_set)))
         # for new_url in new_urls:
     #     url_queue.put(new_url)
-    time.sleep(delay)
+    #time.sleep(delay)
     print("--- %s seconds, thread name: %s ---" % (time.time() - start_time, threadName))
-    start_crawling(site_id, queue_set, delay, driver, threadName)
+    start_crawling(site_id, queue_set, delay, threadName)
 
 
 def is_content_file_url(link):
@@ -230,18 +232,17 @@ def add_site(url, cur):
 def process_data(thread, threadName, q):
     cur = conn.cursor()
     while not exit_flag:
-        driver = SeleniumHelper.init_driver()
         if not workQueue.empty():
             thread.active = True
             url = q.get()
             print("%s processing %s" % (threadName, url))
             site_id = add_site(url, cur)
             if site_id:
-                start_crawling(site_id, {url}, 5, driver, threadName)
+                start_crawling(site_id, {url}, 5, threadName)
             #current_searched_websites.remove(url)
         else:
             thread.active = False
-        driver.close()
+      #  driver.close()
     cur.close()
 
 
