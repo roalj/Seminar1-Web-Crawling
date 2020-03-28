@@ -101,7 +101,6 @@ def start_crawling(site_id, queue_set, delay, driver, threadName):
         # for new_url in new_urls:
     #     url_queue.put(new_url)
 
-    time.sleep(delay)
     start_crawling(site_id, queue_set, delay, driver, threadName)
 
 

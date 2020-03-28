@@ -1,7 +1,10 @@
 import hashlib
 
+import time
 from seleniumwire import webdriver
 from selenium.webdriver.chrome.options import Options
+
+TIMEOUT = 5
 
 
 class SeleniumHelper:
@@ -9,7 +12,9 @@ class SeleniumHelper:
         # driver = self.init_driver(url)
         # self.driver = driver
         driver.get(url)
-        self.links = self.get_links(driver)
+        # Timeout needed for Web page to render
+        time.sleep(TIMEOUT)
+        self.links = self.get_links(driver, url)
         self.images = self.get_images(driver)
         self.content_type = driver.requests[0].response.headers['Content-Type']
         self.text = driver.page_source
@@ -24,14 +29,9 @@ class SeleniumHelper:
         all_links = driver.find_elements_by_tag_name('img')
         return [x.get_attribute('src') for x in all_links]
 
-
-
     @staticmethod
     def init_driver():
         options = Options()
         options.add_argument("--headless")
         driver = webdriver.Chrome(options=options)
         return driver
-
-
-
