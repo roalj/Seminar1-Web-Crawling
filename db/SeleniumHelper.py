@@ -39,14 +39,9 @@ class SeleniumHelper:
         all_links = driver.find_elements_by_tag_name('img')
         return [x.get_attribute('src') for x in all_links]
 
-
-
     @staticmethod
     def init_driver():
         options = Options()
         options.add_argument("--headless")
         driver = webdriver.Chrome(options=options)
         return driver
-
-
-
