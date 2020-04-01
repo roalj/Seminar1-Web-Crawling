@@ -10,9 +10,13 @@ class SeleniumHelper:
         # self.driver = driver
         start_time = time.time()
 
-        driver = SeleniumHelper.init_driver()
+        driver = self.init_driver()
         #time.sleep(1)
+        #print("Starting selenium")
+
         driver.get(url)
+       # print("Ending selenium")
+
         time.sleep(1)
         print("--- %s AFTER SELENIUm, thread name: %s ---" % (time.time() - start_time, thread_name))
 
@@ -39,9 +43,9 @@ class SeleniumHelper:
         all_links = driver.find_elements_by_tag_name('img')
         return [x.get_attribute('src') for x in all_links]
 
-    @staticmethod
-    def init_driver():
+    def init_driver(self):
         options = Options()
         options.add_argument("--headless")
         driver = webdriver.Chrome(options=options)
+
         return driver

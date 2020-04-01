@@ -18,9 +18,10 @@ current_searched_websites = []
 
 def is_site_in_db(base_url, cur):
     sql = "SELECT id FROM crawldb.site where domain = %s or domain = %s"
-    cur.execute(sql, (base_url,change_to_http(base_url),))
+    cur.execute(sql, (base_url, change_to_http(base_url),))
     record_exists = cur.fetchone()
     return record_exists
+
 
 # test
 def delete_all_data():
@@ -31,6 +32,7 @@ def delete_all_data():
     cur.execute("DELETE FROM crawldb.page")
     cur.execute("DELETE FROM crawldb.site")
     cur.close
+
 
 def is_page_alread_saved(url, cur):
     sql = "SELECT id FROM crawldb.page where url = %s or url = %s"
@@ -55,13 +57,22 @@ def add_new_domains_to_queue(url, new_urls, page_id):
 
     return sub_domain_urls
 
-def start_crawling(site_id, queue_set, delay, threadName):
+def calculate_delay(time_passed, delay):
+    if time_passed > delay:
+        return 0
+    return time_passed - delay
+
+
+def start_crawling(site_id, queue_set, delay, threadName, robot_rules):
     if not queue_set:
+        return
+    page = queue_set.pop()
+    url = page.url
+    # če nam strani ne dovoli potem ne pogledamo
+    if robot_rules is not None and not robot_rules.can_fetch('*', url):
         return
 
     start_time = time.time()
-    page = queue_set.pop()
-    url = page.url
     print("checking url : ", threadName, " ", url)
     try:
         crawling_page = SeleniumHelper(url, threadName)
@@ -70,15 +81,13 @@ def start_crawling(site_id, queue_set, delay, threadName):
         print("SELENIUM FAILED TO LOAD ", threadName)
         crawling_page = None
 
-
-
     # check if page hash already exists
     cur = conn.cursor()
 
     if crawling_page is None or is_page_alread_saved(url, cur):
         time.sleep(delay)
         print("--- %s seconds, thread name NONE: %s ---" % (time.time() - start_time, threadName))
-        start_crawling(site_id, queue_set, delay, threadName)
+        start_crawling(site_id, queue_set, delay, threadName, robot_rules)
         return
 
     sql = "SELECT id FROM crawldb.page where hash = %s"
@@ -120,12 +129,13 @@ def start_crawling(site_id, queue_set, delay, threadName):
 
         queue_set |= new_pages
 
-    #print("MERGE URL TIME %s length: %s " % (time.time() - merge_url_time, len(queue_set)))
-        # for new_url in new_urls:
+    # print("MERGE URL TIME %s length: %s " % (time.time() - merge_url_time, len(queue_set)))
+    # for new_url in new_urls:
     #     url_queue.put(new_url)
-    #time.sleep(delay)
+    current_delay = calculate_delay(time.time() - start_time, delay)
+    time.sleep(current_delay)
     print("--- %s seconds, thread name: %s ---" % (time.time() - start_time, threadName))
-    start_crawling(site_id, queue_set, delay, threadName)
+    start_crawling(site_id, queue_set, delay, threadName, robot_rules)
 
 
 def is_content_file_url(link):
@@ -134,15 +144,18 @@ def is_content_file_url(link):
             return format
     return False
 
+
 def change_to_http(url):
     if url.startswith('https://'):
         return url.replace('https://', 'http://', 1)
     else:
         return url
 
+
 def get_base_url(url):
     base_url_parser = urlparse(url)
     return base_url_parser.scheme + "://" + base_url_parser.netloc
+
 
 def make_request(url):
     try:
@@ -153,7 +166,8 @@ def make_request(url):
         else:
             return ""
     except:
-       return ""
+        return ""
+
 
 def get_sitemap(url):
     sitemap_url = urljoin(url, '/sitemap.xml')
@@ -163,6 +177,7 @@ def get_sitemap(url):
 def get_robots(url):
     robots_url = urljoin(url, '/robots.txt')
     return make_request(robots_url)
+
 
 # TODO save urls on the page to link table
 # TODO check if url is already present in queue
@@ -215,8 +230,8 @@ global conn
 # connect to the db
 conn = psycopg2.connect(
     host='localhost',
-    database='crawler',
-    user='postgres',
+    database='crawldb',
+    user='crawldb',
     password='admin'
 )
 conn.autocommit = True
@@ -224,10 +239,12 @@ conn.autocommit = True
 initial_seed = ['https://www.gov.si/', 'http://evem.gov.si/', 'https://e-uprava.gov.si/',
                 'https://www.e-prostor.gov.si/', 'https://www.gov.si/']
 
+
 class Page:
     def __init__(self, url, source_page_id):
         self.url = url
         self.source_page_id = source_page_id
+
 
 class MyThread(threading.Thread):
     def __init__(self, threadID, name, q):
@@ -258,19 +275,19 @@ def add_site(url, cur):
         site_id = insert_into_site(url, robots_content, sitemap_content, cur)
 
         if robots_content == "":
-            return [site_id, 5]
+            return [site_id, 5, None]
         else:
             rp = urllib.robotparser.RobotFileParser()
             robots_url = urljoin(url, '/robots.txt')
             rp.set_url(robots_url)
             rp.read()
             if rp is None:
-                return [site_id, 5]
+                return [site_id, 5, None]
             else:
                 if rp.crawl_delay("*") is None:
-                    return [site_id, 5]
+                    return [site_id, 5, rp]
                 else:
-                    return [site_id, rp.crawl_delay("*")]
+                    return [site_id, rp.crawl_delay("*"), rp]
     return False
 
 
@@ -284,20 +301,20 @@ def process_data(thread, threadName, q):
             print("%s processing %s" % (threadName, url))
             site_id = add_site(url, cur)
             if site_id:
-            #current_searched_websites.remove(url)
+                # current_searched_websites.remove(url)
                 print(site_id[0])
-                start_crawling(site_id[0], {page}, site_id[1], threadName)
+                start_crawling(site_id[0], {page}, site_id[1], threadName, site_id[2])
             current_searched_websites.remove(url)
         else:
             thread.active = False
-      #  driver.close()
+    #  driver.close()
     cur.close()
 
 
 delete_all_data()
 
 exit_flag = 0
-number_of_workers = 3
+number_of_workers = 4
 workQueue = Queue()
 threads = []
 
