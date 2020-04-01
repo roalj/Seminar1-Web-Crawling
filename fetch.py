@@ -57,45 +57,43 @@ def add_new_domains_to_queue(url, new_urls, page_id):
 
     return sub_domain_urls
 
+
 def calculate_delay(time_passed, delay):
     if time_passed > delay:
         return 0
-    return time_passed - delay
+    return delay - time_passed
 
+def is_site_disallowed(robot_rules, url):
+    return robot_rules is not None and not robot_rules.can_fetch('*', url)
 
 def start_crawling(site_id, queue_set, delay, threadName, robot_rules):
     if not queue_set:
         return
     page = queue_set.pop()
     url = page.url
-    # če nam strani ne dovoli potem ne pogledamo
-    if robot_rules is not None and not robot_rules.can_fetch('*', url):
-        return
-
     start_time = time.time()
     print("checking url : ", threadName, " ", url)
+    cur = conn.cursor()
+
+    if is_page_alread_saved(url, cur) or is_site_disallowed(robot_rules, url):
+        print("--- %s seconds, thread name NONE: %s ---" % (time.time() - start_time, threadName))
+        start_crawling(site_id, queue_set, delay, threadName, robot_rules)
+        cur.close()
+        return
+
     try:
         crawling_page = SeleniumHelper(url, threadName)
     except Exception as e:
-        print(e)
-        print("SELENIUM FAILED TO LOAD ", threadName)
-        crawling_page = None
-
-    # check if page hash already exists
-    cur = conn.cursor()
-
-    if crawling_page is None or is_page_alread_saved(url, cur):
-        time.sleep(delay)
-        print("--- %s seconds, thread name NONE: %s ---" % (time.time() - start_time, threadName))
+        print("failed selenium: ", e)
         start_crawling(site_id, queue_set, delay, threadName, robot_rules)
+        cur.close()
         return
+
 
     sql = "SELECT id FROM crawldb.page where hash = %s"
     page_hash = hashlib.sha256(crawling_page.text.encode('utf-8')).hexdigest()
     cur.execute(sql, (page_hash,))
     record_exists = cur.fetchone()
-
-    merge_url_time = time.time()
 
     if not record_exists:
         # check if html page
@@ -129,10 +127,8 @@ def start_crawling(site_id, queue_set, delay, threadName, robot_rules):
 
         queue_set |= new_pages
 
-    # print("MERGE URL TIME %s length: %s " % (time.time() - merge_url_time, len(queue_set)))
-    # for new_url in new_urls:
-    #     url_queue.put(new_url)
     current_delay = calculate_delay(time.time() - start_time, delay)
+    print("current_delay ", current_delay)
     time.sleep(current_delay)
     print("--- %s seconds, thread name: %s ---" % (time.time() - start_time, threadName))
     start_crawling(site_id, queue_set, delay, threadName, robot_rules)
