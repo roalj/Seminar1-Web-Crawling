@@ -5,6 +5,7 @@ import requests
 import psycopg2
 import hashlib
 import threading
+import urllib.robotparser
 
 from db.SeleniumHelper import SeleniumHelper
 
@@ -147,7 +148,10 @@ def make_request(url):
     try:
         response = requests.get(url)
         time.sleep(5)
-        return response.text
+        if response.status_code < 400:
+            return response.text
+        else:
+            return ""
     except:
        return ""
 
@@ -252,7 +256,21 @@ def add_site(url, cur):
         robots_content = get_robots(url)
         sitemap_content = get_sitemap(url)
         site_id = insert_into_site(url, robots_content, sitemap_content, cur)
-        return site_id
+
+        if robots_content == "":
+            return [site_id, 5]
+        else:
+            rp = urllib.robotparser.RobotFileParser()
+            robots_url = urljoin(url, '/robots.txt')
+            rp.set_url(robots_url)
+            rp.read()
+            if rp is None:
+                return [site_id, 5]
+            else:
+                if rp.crawl_delay("*") is None:
+                    return [site_id, 5]
+                else:
+                    return [site_id, rp.crawl_delay("*")]
     return False
 
 
@@ -267,7 +285,8 @@ def process_data(thread, threadName, q):
             site_id = add_site(url, cur)
             if site_id:
             #current_searched_websites.remove(url)
-                start_crawling(site_id, {page}, 5, threadName)
+                print(site_id[0])
+                start_crawling(site_id[0], {page}, site_id[1], threadName)
             current_searched_websites.remove(url)
         else:
             thread.active = False
@@ -278,7 +297,7 @@ def process_data(thread, threadName, q):
 delete_all_data()
 
 exit_flag = 0
-number_of_workers = 4
+number_of_workers = 3
 workQueue = Queue()
 threads = []
 
