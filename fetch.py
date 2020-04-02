@@ -6,11 +6,12 @@ import psycopg2
 import hashlib
 import threading
 import urllib.robotparser
+import concurrent.futures
 
 from bs4 import BeautifulSoup
 
 from db.SeleniumHelper import SeleniumHelper
-
+lock = threading.Lock()
 url_queue = Queue()
 already_visited_sites = set()
 already_visited_pages = set()
@@ -37,10 +38,11 @@ def delete_all_data():
 
 
 def is_page_alread_saved(url, cur):
-    sql = "SELECT id FROM crawldb.page where url = %s or url = %s"
-    cur.execute(sql, (url, change_to_http(url),))
-    record_exists = cur.fetchone()
-    return record_exists
+    with lock:
+        sql = "SELECT id FROM crawldb.page where url = %s or url = %s"
+        cur.execute(sql, (url, change_to_http(url),))
+        record_exists = cur.fetchone()
+        return record_exists
 
 
 def add_new_domains_to_queue(url, new_urls, page_id):
@@ -71,78 +73,85 @@ def is_site_disallowed(robot_rules, url):
 def start_crawling(site_id, queue_set, delay, threadName, robot_rules):
     if not queue_set:
         return
-    page = queue_set.pop()
-    url = page.url
-    start_time = time.time()
-    print("checking url : ", threadName, " ", url)
-    cur = conn.cursor()
+    while not queue_set.empty():
+        page = queue_set.get(block=False)
+        url = page.url
+        start_time = time.time()
+        print("checking url : ", threadName, " ", url)
+        cur = conn.cursor()
 
-    if is_page_alread_saved(url, cur) or is_site_disallowed(robot_rules, url):
-        print("--- %s seconds, thread name NONE: %s ---" % (time.time() - start_time, threadName))
-        start_crawling(site_id, queue_set, delay, threadName, robot_rules)
-        cur.close()
-        return
+        if is_page_alread_saved(url, cur) or is_site_disallowed(robot_rules, url):
+            print("--- %s seconds, thread name NONE: %s ---" % (time.time() - start_time, threadName))
+            continue
+            # start_crawling(site_id, queue_set, delay, threadName, robot_rules)
+            # cur.close()
+            # return
 
-    try:
-        # crawling_page = SeleniumHelper(url, threadName)
-        request = requests.get(url)
-        time.sleep(5)
-        soup = BeautifulSoup(request.content, 'html.parser')
-    except Exception as e:
-        print("failed selenium: ", e)
-        start_crawling(site_id, queue_set, delay, threadName, robot_rules)
-        cur.close()
-        return
+        try:
+            # crawling_page = SeleniumHelper(url, threadName)
+            request = requests.get(url)
+            time.sleep(5)
+            soup = BeautifulSoup(request.content, 'html.parser')
+        except Exception as e:
+            print("failed selenium: ", e)
+            continue
+            # start_crawling(site_id, queue_set, delay, threadName, robot_rules)
+            # cur.close()
+            # return
 
 
-    sql = "SELECT id FROM crawldb.page where hash = %s"
-    page_hash = hashlib.sha256(soup.text.encode('utf-8')).hexdigest()
-    cur.execute(sql, (page_hash,))
-    record_exists = cur.fetchone()
+        sql = "SELECT id FROM crawldb.page where hash = %s"
+        page_hash = hashlib.sha256(soup.text.encode('utf-8')).hexdigest()
+        cur.execute(sql, (page_hash,))
+        record_exists = cur.fetchone()
 
-    if not record_exists:
-        # check if html page
-        if 'html' in request.headers['Content-Type']:
-            cur.execute(
-                "INSERT INTO crawldb.page VALUES(DEFAULT, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP, %s) RETURNING id",
-                (site_id, 'HTML', url, request.text, request.status_code, page_hash))
-            page_id = cur.fetchone()[0]
+        if not record_exists:
+            # check if html page
+            if 'html' in request.headers['Content-Type']:
+                with lock:
+                    cur.execute(
+                        "INSERT INTO crawldb.page VALUES(DEFAULT, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP, %s) RETURNING id",
+                        (site_id, 'HTML', url, request.text if request.text != '' else 'NULL', request.status_code, page_hash))
+                    page_id = cur.fetchone()[0]
+            else:
+                with lock:
+                    cur.execute(
+                        "INSERT INTO crawldb.page VALUES(DEFAULT, %s, %s, %s, NULL, %s, CURRENT_TIMESTAMP, %s) RETURNING id",
+                        (site_id, 'BINARY', url, request.status_code, page_hash))
+                    page_id = cur.fetchone()[0]
+
+            if page.source_page_id is not None:
+                print("link from: " + str(page.source_page_id) + " , to: " + str(page_id))
+                with lock:
+                    cur.execute(
+                        "INSERT INTO crawldb.link VALUES(%s, %s)",
+                        (page.source_page_id, page_id)
+                    )
         else:
-            cur.execute(
-                "INSERT INTO crawldb.page VALUES(DEFAULT, %s, %s, %s, NULL, %s, CURRENT_TIMESTAMP, %s) RETURNING id",
-                (site_id, 'BINARY', url, request.status_code, page_hash))
-            page_id = cur.fetchone()[0]
+            with lock:
+                cur.execute(
+                    "INSERT INTO crawldb.page VALUES(DEFAULT, %s, %s, %s, NULL , %s, CURRENT_TIMESTAMP, %s) RETURNING id",
+                    (site_id, 'DUPLICATE', url, request.status_code, page_hash))
+                page_id = cur.fetchone()[0]
 
-        if page.source_page_id is not None:
-            print("link from: " + str(page.source_page_id) + " , to: " + str(page_id))
-            cur.execute(
-                "INSERT INTO crawldb.link VALUES(%s, %s)",
-                (page.source_page_id, page_id)
-            )
-    else:
-        cur.execute(
-            "INSERT INTO crawldb.page VALUES(DEFAULT, %s, %s, %s, NULL , %s, CURRENT_TIMESTAMP, %s) RETURNING id",
-            (site_id, 'DUPLICATE', url, request.status_code, page_hash))
-        page_id = cur.fetchone()[0]
+        cur.close()
 
-    cur.close()
+        already_visited_pages.add(url)
 
-    already_visited_pages.add(url)
+        new_urls = search_page_urls_and_images(url, page_id, soup)
+        sub_domain_urls = add_new_domains_to_queue(url, new_urls, page_id)
 
-    new_urls = search_page_urls_and_images(url, page_id, soup)
-    sub_domain_urls = add_new_domains_to_queue(url, new_urls, page_id)
+        new_pages = set()
+        for new_url in sub_domain_urls:
+            queue_set.put(Page(new_url, page_id))
 
-    new_pages = set()
-    for new_url in sub_domain_urls:
-        new_pages.add(Page(new_url, page_id))
+        # queue_set |= new_pages
 
-    queue_set |= new_pages
-
-    current_delay = calculate_delay(time.time() - start_time, delay)
-    print("current_delay ", current_delay)
-    time.sleep(current_delay)
-    print("--- %s seconds, thread name: %s ---" % (time.time() - start_time, threadName))
-    start_crawling(site_id, queue_set, delay, threadName, robot_rules)
+        current_delay = calculate_delay(time.time() - start_time, delay)
+        print("current_delay ", current_delay)
+        time.sleep(current_delay)
+        print("--- %s seconds, thread name: %s ---" % (time.time() - start_time, threadName))
+        # start_crawling(site_id, queue_set, delay, threadName, robot_rules)
 
 
 def is_content_file_url(link):
@@ -244,7 +253,7 @@ conn = psycopg2.connect(
 conn.autocommit = True
 
 initial_seed = ['https://www.gov.si/', 'http://evem.gov.si/', 'https://e-uprava.gov.si/',
-                'https://www.e-prostor.gov.si/', 'https://www.gov.si/']
+                'https://www.e-prostor.gov.si/']
 
 
 class Page:
@@ -307,10 +316,12 @@ def process_data(thread, threadName, q):
             url = page.url
             print("%s processing %s" % (threadName, url))
             site_id = add_site(url, cur)
+            queue = Queue()
+            queue.put(page)
             if site_id:
                 # current_searched_websites.remove(url)
                 print(site_id[0])
-                start_crawling(site_id[0], {page}, site_id[1], threadName, site_id[2])
+                start_crawling(site_id[0], queue, site_id[1], threadName, site_id[2])
             current_searched_websites.remove(url)
         else:
             thread.active = False
@@ -321,7 +332,7 @@ def process_data(thread, threadName, q):
 delete_all_data()
 
 exit_flag = 0
-number_of_workers = 4
+number_of_workers = 8
 workQueue = Queue()
 threads = []
 
