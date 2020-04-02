@@ -7,6 +7,8 @@ import hashlib
 import threading
 import urllib.robotparser
 
+from bs4 import BeautifulSoup
+
 from db.SeleniumHelper import SeleniumHelper
 
 url_queue = Queue()
@@ -82,7 +84,10 @@ def start_crawling(site_id, queue_set, delay, threadName, robot_rules):
         return
 
     try:
-        crawling_page = SeleniumHelper(url, threadName)
+        # crawling_page = SeleniumHelper(url, threadName)
+        request = requests.get(url)
+        time.sleep(5)
+        soup = BeautifulSoup(request.content, 'html.parser')
     except Exception as e:
         print("failed selenium: ", e)
         start_crawling(site_id, queue_set, delay, threadName, robot_rules)
@@ -91,21 +96,21 @@ def start_crawling(site_id, queue_set, delay, threadName, robot_rules):
 
 
     sql = "SELECT id FROM crawldb.page where hash = %s"
-    page_hash = hashlib.sha256(crawling_page.text.encode('utf-8')).hexdigest()
+    page_hash = hashlib.sha256(soup.text.encode('utf-8')).hexdigest()
     cur.execute(sql, (page_hash,))
     record_exists = cur.fetchone()
 
     if not record_exists:
         # check if html page
-        if 'html' in crawling_page.content_type:
+        if 'html' in request.headers['Content-Type']:
             cur.execute(
                 "INSERT INTO crawldb.page VALUES(DEFAULT, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP, %s) RETURNING id",
-                (site_id, 'HTML', url, crawling_page.text, crawling_page.status_code, page_hash))
+                (site_id, 'HTML', url, request.text, request.status_code, page_hash))
             page_id = cur.fetchone()[0]
         else:
             cur.execute(
                 "INSERT INTO crawldb.page VALUES(DEFAULT, %s, %s, %s, NULL, %s, CURRENT_TIMESTAMP, %s) RETURNING id",
-                (site_id, 'BINARY', url, crawling_page.status_code, page_hash))
+                (site_id, 'BINARY', url, request.status_code, page_hash))
             page_id = cur.fetchone()[0]
 
         if page.source_page_id is not None:
@@ -114,18 +119,24 @@ def start_crawling(site_id, queue_set, delay, threadName, robot_rules):
                 "INSERT INTO crawldb.link VALUES(%s, %s)",
                 (page.source_page_id, page_id)
             )
-        cur.close()
+    else:
+        cur.execute(
+            "INSERT INTO crawldb.page VALUES(DEFAULT, %s, %s, %s, NULL , %s, CURRENT_TIMESTAMP, %s) RETURNING id",
+            (site_id, 'DUPLICATE', url, request.status_code, page_hash))
+        page_id = cur.fetchone()[0]
 
-        already_visited_pages.add(url)
+    cur.close()
 
-        new_urls = search_page_urls_and_images(url, page_id, crawling_page)
-        sub_domain_urls = add_new_domains_to_queue(url, new_urls, page_id)
+    already_visited_pages.add(url)
 
-        new_pages = set()
-        for new_url in sub_domain_urls:
-            new_pages.add(Page(new_url, page_id))
+    new_urls = search_page_urls_and_images(url, page_id, soup)
+    sub_domain_urls = add_new_domains_to_queue(url, new_urls, page_id)
 
-        queue_set |= new_pages
+    new_pages = set()
+    for new_url in sub_domain_urls:
+        new_pages.add(Page(new_url, page_id))
+
+    queue_set |= new_pages
 
     current_delay = calculate_delay(time.time() - start_time, delay)
     print("current_delay ", current_delay)
@@ -177,14 +188,13 @@ def get_robots(url):
 
 # TODO save urls on the page to link table
 # TODO check if url is already present in queue
-def search_page_urls_and_images(url, page_id, crawling_page):
+def search_page_urls_and_images(url, page_id, soup):
     urls = set()
     cur = conn.cursor()
     # all_links = soup.findAll('a')
 
-    for link in crawling_page.links:
-        # parsing_link = link.get_attribute("href")
-        parsing_link = link
+    for link in soup.findAll('a'):
+        parsing_link = link.get('href')
         if parsing_link == "" or parsing_link is None:
             continue
         combined_link = urljoin(url, parsing_link)
@@ -200,10 +210,11 @@ def search_page_urls_and_images(url, page_id, crawling_page):
             urls.add(clean_link) if clean_link not in urls else urls
 
     # get all images
-    for image in crawling_page.images:
-        if image == "" or image is None:
+    for image in soup.findAll('img'):
+        image_source = image.get('src')
+        if image_source == "" or image_source is None:
             continue
-        combined_link = urljoin(url, image)
+        combined_link = urljoin(url, image_source)
         parsed_image = urlparse(combined_link)
 
         # some images started on "data*"
@@ -226,8 +237,8 @@ global conn
 # connect to the db
 conn = psycopg2.connect(
     host='localhost',
-    database='crawldb',
-    user='crawldb',
+    database='crawler',
+    user='postgres',
     password='admin'
 )
 conn.autocommit = True
