@@ -70,6 +70,11 @@ def calculate_delay(time_passed, delay):
 def is_site_disallowed(robot_rules, url):
     return robot_rules is not None and not robot_rules.can_fetch('*', url)
 
+
+def site_contains_http_twice(url):
+    return url.count('http') > 1
+
+
 def start_crawling(site_id, queue_set, delay, threadName, robot_rules):
     if not queue_set:
         return
@@ -80,7 +85,7 @@ def start_crawling(site_id, queue_set, delay, threadName, robot_rules):
         print("checking url : ", threadName, " ", url)
         cur = conn.cursor()
 
-        if is_page_alread_saved(url, cur) or is_site_disallowed(robot_rules, url):
+        if is_page_alread_saved(url, cur) or is_site_disallowed(robot_rules, url) or site_contains_http_twice(url):
             print("--- %s seconds, thread name NONE: %s ---" % (time.time() - start_time, threadName))
             continue
             # start_crawling(site_id, queue_set, delay, threadName, robot_rules)
@@ -133,6 +138,7 @@ def start_crawling(site_id, queue_set, delay, threadName, robot_rules):
                     "INSERT INTO crawldb.page VALUES(DEFAULT, %s, %s, %s, NULL , %s, CURRENT_TIMESTAMP, %s) RETURNING id",
                     (site_id, 'DUPLICATE', url, request.status_code, page_hash))
                 page_id = cur.fetchone()[0]
+            continue
 
         cur.close()
 
@@ -322,7 +328,7 @@ def process_data(thread, threadName, q):
                 # current_searched_websites.remove(url)
                 print(site_id[0])
                 start_crawling(site_id[0], queue, site_id[1], threadName, site_id[2])
-            current_searched_websites.remove(url)
+                current_searched_websites.remove(url)
         else:
             thread.active = False
     #  driver.close()
@@ -332,7 +338,7 @@ def process_data(thread, threadName, q):
 delete_all_data()
 
 exit_flag = 0
-number_of_workers = 8
+number_of_workers = 30
 workQueue = Queue()
 threads = []
 
