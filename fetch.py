@@ -17,6 +17,7 @@ already_visited_sites = set()
 already_visited_pages = set()
 content_types = ['PDF', 'DOC', 'DOCX', 'PPT', 'PPTX']
 current_searched_websites = []
+headers = {'user-agent': 'fri-ieps-roalj'}
 
 
 def is_site_in_db(base_url, cur):
@@ -94,7 +95,7 @@ def start_crawling(site_id, queue_set, delay, threadName, robot_rules):
 
         try:
             # crawling_page = SeleniumHelper(url, threadName)
-            request = requests.get(url)
+            request = requests.get(url, headers=headers)
             time.sleep(5)
             soup = BeautifulSoup(request.content, 'html.parser')
         except Exception as e:
@@ -181,7 +182,7 @@ def get_base_url(url):
 
 def make_request(url):
     try:
-        response = requests.get(url)
+        response = requests.get(url, headers=headers)
         time.sleep(5)
         if response.status_code < 400:
             return response.text
