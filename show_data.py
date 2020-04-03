@@ -29,8 +29,8 @@ def calculate_number_of_pages(sites):
 y = []
 z = []
 size = []
-fig_dims = (15, 5)
-num_rows = 5
+fig_dims = (25, 10)
+num_rows = 8
 
 sites = get_all_sites()
 site_counted = calculate_number_of_pages(sites)
@@ -49,9 +49,11 @@ fig, ax = plt.subplots(figsize=fig_dims)
 ax.scatter(z, y, size)
 ax.axes.get_xaxis().set_visible(False)
 ax.axes.get_yaxis().set_visible(False)
+fig.patch.set_visible(False)
+ax.axis('off')
 
 for i in range(0, len(sites), 1):
-    ax.annotate(sites[i][1], (z[i], y[i]))
+    ax.annotate(sites[i][1], (z[i], y[i]), (z[i]+0.2, y[i]))
 
 cur.close()
 plt.show()
