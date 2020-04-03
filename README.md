@@ -22,3 +22,5 @@ For image rendering:
 
 
 To run the script, you need packages listed above. To change the number of threads you change line 342 in fetch.py to desired number.
+
+DB backup link available in baza_drive.txt
