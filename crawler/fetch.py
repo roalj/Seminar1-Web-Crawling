@@ -6,11 +6,9 @@ import psycopg2
 import hashlib
 import threading
 import urllib.robotparser
-import concurrent.futures
 
 from bs4 import BeautifulSoup
 
-from db.SeleniumHelper import SeleniumHelper
 lock = threading.Lock()
 url_queue = Queue()
 already_visited_sites = set()
