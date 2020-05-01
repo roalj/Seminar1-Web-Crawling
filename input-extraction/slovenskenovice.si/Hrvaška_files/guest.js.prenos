@@ -1,0 +1,48 @@
+var triggerLoginModalButton = function (activeButton) {
+	jQuery('.loginModalButton')[0].click();
+};
+jQuery(function () {
+	var modalElement = jQuery('#loginModal');
+	var modalInstance = false;
+	if (modalElement.length > 0) {
+		modalInstance = modalElement.modal('hide');
+	}
+	jQuery('body').on('click', '.loginToFollow,.loginToContanct,.loginToComment,.loginAjax', function (e) {
+		e.preventDefault();
+		var activeButton = jQuery(this);
+		//jQuery('#lmodalButton')[0].click();
+		if (jQuery('#loginModalProba .modal-body').children().length === 0) {
+			var returnUrl = window.location.href;
+			if (typeof activeButton.attr('data-redirect') !== 'undefined' && activeButton.attr('data-redirect') == 1) {
+				returnUrl = activeButton.attr('href');
+			}
+			jQuery.post('/index.php?option=com_ocm&view=ajax',
+					{
+						task: 'getMLoginPage',
+						rurl: returnUrl
+					},
+					function (response) {
+						if (!response.status) {
+							alert(response.msg);
+							if (modalInstance) {
+								modalInstance.modal('hide');
+							}
+							return;
+						}
+						jQuery('#loginModal .modal-body').html(response.data).promise().done(function () {
+							if (modalInstance) {
+								modalInstance.modal({
+									keyboard: true
+								});
+							}
+						});
+					}, 'JSON');
+		} else {
+			if (modalInstance) {
+				modalInstance.modal('show');
+			}
+		}
+	});
+	if (modalInstance)
+		modalInstance.data('bs.modal').handleUpdate();
+});

@@ -1,0 +1,112 @@
+// DUR
+
+window.addEventListener('load', init)
+
+function init() {
+    login()
+    logout()
+    modal_toggle()
+}
+
+// A simple login function using delo jwt library
+/*
+ function login() {
+ let el = document.getElementById('sign-in')
+ if(!el) return
+ el.addEventListener('click', e => {
+ jwt.auth({
+ username: document.getElementById('username').value,
+ password: document.getElementById('password').value
+ }).then(resolve => {
+ if(resolve.token) location.reload()
+ }, message)
+ })
+ }*/
+var login = function () {
+    jQuery('#mainloginForm #sign-in').on('click', function () {
+        jQuery('#mainloginForm').trigger('submit');
+    });
+    jQuery('#mainloginForm').on('submit', function (e) {
+        e.preventDefault();
+        jwt.auth({
+            username: document.getElementById('username').value,
+            password: document.getElementById('password').value
+        }, function (result) {
+            if (result.token) {
+                setTimeout(function () {
+                    location.reload();
+                }, 2000);
+            } else {
+                message(result);   // wrong username or password
+            }
+        });
+    });
+    
+    var el1 = document.getElementById('password');
+    if(!el1) return;
+    
+    el1.addEventListener('keyup', function(e) {
+        e.preventDefault();
+        if (e.keyCode === 13) {
+            document.getElementById('sign-in').click();
+        }     
+    });
+};
+
+function message(m) {
+    let el = document.getElementById('message')
+    if (!el)
+        return
+    el.style.display = 'block';
+    el.innerHTML += '<p>Vpisano uporabniško ime ali geslo ni pravilno ali pa uporabnik ne obstaja.</p>'
+}
+
+
+function logout() {
+    var el = document.getElementById('sign-out');
+    if (!el)
+        return;
+    el.addEventListener('click', function () {
+        jwt.logout();
+        setTimeout(function () {
+            location.reload();
+        }, 2000);
+    });
+}
+
+// For buttons toggling modal window on and off
+function modal_toggle() {
+    var elements = document.getElementsByClassName('modal-toggle');
+    for (var i = 0; i < elements.length; i++) {
+        elements[i].addEventListener('click', function () {
+            toggle_login();
+        });
+        elements[i].addEventListener('keyup', function (e) {
+            if (e.keyCode == 27) {
+                toggle_login();
+            }
+        });
+    }
+}
+
+// modal window to be toggled
+function toggle_visibility(login, buy) {
+    if (buy === '') {
+        //elements = document.getElementsByClassName(className);
+        //for (var i = 0; i < elements.length; i++) {
+        //    elements[i].style.display = elements[i].style.display == 'flex' ? 'none' : 'flex';}
+        var element = document.getElementById(login);
+        element.style.display = element.style.display == 'flex' ? 'none' : 'flex';
+    } else {
+        element = document.getElementById(buy);
+        element.style.display = element.style.display == 'flex' ? 'none' : 'flex';
+    }
+
+
+}
+
+function toggle_login(){
+    jQuery.noConflict();
+    jQuery('.userLoginForm').modal('show');
+//    jQuery('#login').modal('show');
+}

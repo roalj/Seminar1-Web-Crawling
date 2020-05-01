@@ -1,0 +1,188 @@
+/** 
+ *------------------------------------------------------------------------------
+ * @package       T3 Framework for Joomla!
+ *------------------------------------------------------------------------------
+ * @copyright     Copyright (C) 2004-2013 JoomlArt.com. All Rights Reserved.
+ * @license       GNU General Public License version 2 or later; see LICENSE.txt
+ * @authors       JoomlArt, JoomlaBamboo, (contribute to this project at github 
+ *                & Google group to become co-author)
+ * @Google group: https://groups.google.com/forum/#!forum/t3fw
+ * @Link:         http://t3-framework.org 
+ *------------------------------------------------------------------------------
+ */
+
+//$=jQuery.noConflict();
+
+var initStickyCols = function (columns) {
+    screenWidth = jQuery(window).width();	
+    if (screenWidth > 1023) {
+        jQuery.each(columns, function (i, v) {
+            var column = jQuery(this);
+            var columnParent = column.parent();
+            rowHeight=column.parent().parent().height();
+            column.parent().height(rowHeight);
+
+            //, transform: translate3d(0, 0, 0)
+            jQuery(document.body).trigger("sticky_kit:recalc");
+            if (screenWidth > 1280) {
+                column.stick_in_parent({
+                    offset_top: 79+15, spacer: false, recalc_every: 1
+                });
+            } else {
+                column.stick_in_parent({
+                    offset_top: 63+15, spacer: false, recalc_every: 1
+                });
+            }    
+            
+            jQuery(window).resize(function (data) {
+                if (jQuery(this).width() <= 1023) {
+                    columnParent.height(column.outerHeight());
+                    column.trigger("sticky_kit:detach");
+                } else {
+                    rowHeight = column.closest('.row').height();
+                    columnParent.height(rowHeight);
+                    if (!column.hasClass('is_stuck')) {
+                        jQuery(document.body).trigger("sticky_kit:recalc");
+                        column.stick_in_parent();
+                    }
+                }
+            });            
+            //column.after('<div class="sticky-content-spacer"/>');
+            //column.stick_in_parent({ offset_top: 80+15, spacer: '.sticky-content-spacer'});             
+            //column.parent().parent().height()
+            //var rowHeight = column.closest('.row').height()-95;
+            /*column.on('sticky_kit:bottom', function(e) {
+                jQuery(this).parent().css('position', 'static');
+            })
+            .on('sticky_kit:unbottom', function(e) {
+                jQuery(this).parent().css('position', 'relative');
+            })*/	            
+                    
+							
+        });
+    }
+};
+// wait for all page to load including images
+jQuery(window).bind("load", function() {
+
+    cols=jQuery(".col-sticky");
+    initStickyCols(cols);    
+
+    // update ellipsis
+    jQuery(".h-title").trigger("update");
+    
+});
+
+
+// weather script to change city info
+jQuery(function() {
+    jQuery(".meteocity").click(function(){
+        jQuery(".weather-top-temp").html(jQuery(this).attr('data-citytemp'));
+        jQuery(".weather-city-btn-title").html(jQuery(this).children("a").html());        
+        jQuery(".weather-top-icon").html(JSON.parse('"' + jQuery(this).attr('data-cityicon') + '"'));              
+        jQuery(".weather-top-tommorow").html(jQuery(this).attr('data-citytommorow'));        
+    }); 
+});
+
+// horoscope handling
+jQuery(function() {
+    signImgPfx=jQuery(".horoscope_cont").attr('data-imgpfx');
+    
+    currSign=parseInt(Cookies.get('horoskop'));
+    if (isNaN(currSign)) {
+        currSign=1;
+        Cookies.set('horoskop', 1, { expires: 365, path: '/' });
+    }
+    jQuery(".signimg"+currSign).attr("src",signImgPfx+currSign+".svg");
+    jQuery(".horoskoptext").html(jQuery(".horoskopdnevni").attr('data-signtext'+currSign)); 
+    jQuery(".horoscopebigimg").attr("src",signImgPfx+currSign+"_main.svg")
+    
+    // naslovka
+    jQuery(".home_page .horoskopnav").on('click', function(event) {
+        event.preventDefault();
+        Cookies.set('horoskop', jQuery(this).attr('data-sign'), { expires: 365, path: '/' });
+        window.location = "/stil/horoskop";
+    });	
+    jQuery(".home_page .horoskopnavimg").hover(
+        function() { 
+            jQuery(this).attr("src",signImgPfx+jQuery(this).attr('data-sign')+"_cb.svg")},
+        function() { 
+            jQuery(this).attr("src",signImgPfx+jQuery(this).attr('data-sign')+".svg")
+    });							
+
+    // astrohoroskop
+    jQuery(".cat_page .horoskopnav").on('click', function(event) {
+        event.preventDefault();
+
+        oldSign=Cookies.get('horoskop');
+        jQuery(".signimg"+oldSign).attr("src",signImgPfx+oldSign+"_cb.svg");             
+
+        newSign=jQuery(this).attr('data-sign');           
+        Cookies.set('horoskop', newSign , { expires: 365, path: '/'  });
+        horoskopperiod="."+jQuery(".horoskoptext").attr('data-horoskopperiod');
+        jQuery(".horoskoptext").html(jQuery(horoskopperiod).attr('data-signtext'+newSign)); 
+        jQuery(".signimg"+newSign).attr("src",signImgPfx+newSign+".svg");                         
+        jQuery(".horoscopebigimg").attr("src",signImgPfx+newSign+"_main.svg")
+        
+    });	
+    // select period
+    jQuery(".cat_page .horoskopperiodnav .horoskopbtndnevni").on('click', function(event) {
+        jQuery(".horoskopbtndnevni").addClass("horoskopperiodselected");
+        jQuery(".horoskopbtnletni").removeClass("horoskopperiodselected");
+        jQuery(".horoskoptitle").html(jQuery(".horoskopdnevni").attr('data-horoskoptitle'));             
+        jQuery(".horoskoptext").attr('data-horoskopperiod',"horoskopdnevni");        
+        jQuery(".horoskoptext").html(jQuery(".horoskopdnevni").attr('data-signtext'+Cookies.get('horoskop'))); 
+    });	
+    jQuery(".cat_page .horoskopperiodnav .horoskopbtnletni").on('click', function(event) {
+        jQuery(".horoskopbtnletni").addClass("horoskopperiodselected");
+        jQuery(".horoskopbtndnevni").removeClass("horoskopperiodselected"); 
+        jQuery(".horoskoptitle").html(jQuery(".horoskopletni").attr('data-horoskoptitle'));                     
+        jQuery(".horoskoptext").attr('data-horoskopperiod',"horoskopletni");        
+        jQuery(".horoskoptext").html(jQuery(".horoskopletni").attr('data-signtext'+Cookies.get('horoskop'))); 
+    });	
+    // images on hover
+    jQuery(".cat_page .horoskopnavimg").hover(
+        function() { 
+            jQuery(this).attr("src",signImgPfx+jQuery(this).attr('data-sign')+".svg")},
+        function() { 
+            if (jQuery(this).attr('data-sign')!=Cookies.get('horoskop')) {
+                jQuery(this).attr("src",signImgPfx+jQuery(this).attr('data-sign')+"_cb.svg");
+            }
+        }
+    );        					
+});
+
+function calcStickyHeight()
+{
+    // on item page right side sticky slow loading issue fix
+    //jQuery(".stickycalc0").attr('style','min-height:'+jQuery(".stickycalc1").height()+"px;");
+
+    if (jQuery(".stickycalc1-0").height()<jQuery(".stickycalc1-1").height()) {
+        jQuery(".stickycalc1-0").css('min-height', ''+jQuery(".stickycalc1-1").height()+'px');        
+    }
+    if (jQuery(".stickycalc1-1").height()<jQuery(".stickycalc1-0").height()) {
+        jQuery(".stickycalc1-1").css('min-height', ''+jQuery(".stickycalc1-0").height()+'px');                
+    } 
+    if (jQuery(".stickycalc1-1").height()<jQuery(".stickycalc1-2").height()) {
+        jQuery(".stickycalc1-1").css('height', ''+jQuery(".stickycalc1-2").height()+'px');                
+    }        
+
+    if (jQuery(".stickycalc2-0").height()<jQuery(".stickycalc2-1").height()) {
+        jQuery(".stickycalc2-0").css('min-height', ''+jQuery(".stickycalc2-1").height()+'px');        
+    }
+    if (jQuery(".stickycalc2-1").height()<jQuery(".stickycalc2-0").height()) {
+        jQuery(".stickycalc2-1").css('min-height', ''+jQuery(".stickycalc2-0").height()+'px');                
+    } 
+    if (jQuery(".stickycalc2-1").height()<jQuery(".stickycalc2-2").height()) {
+        jQuery(".stickycalc2-1").css('height', ''+jQuery(".stickycalc2-2").height()+'px');                
+    }        
+
+    setTimeout(calcStickyHeight, 1*1000);
+}
+
+jQuery(window).bind("load", function() {
+    screenWidth = jQuery(window).width();	
+    if (screenWidth > 1023) {
+        setTimeout(calcStickyHeight, 1*1000);        
+    }
+});

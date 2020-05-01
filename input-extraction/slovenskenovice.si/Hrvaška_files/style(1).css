@@ -1,0 +1,109 @@
+/* // DUR */ 
+.hidden {
+    display: none;
+}
+.document {
+    padding: 3em;
+}
+.avatar {
+    border-radius: 50%;
+}
+
+table.premium-shop {
+    width: 100%;
+}
+table.premium-shop td {
+    padding-bottom: .5em;
+}
+.modal {
+    display: none;
+    position: fixed;
+    justify-content: center;
+    align-items: center;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0,0,0,0.5);
+    z-index: 5000;
+}
+.modal .window {
+    position: fixed;
+    min-width: 30em;
+    min-height: 20em;
+    padding: 2em;
+    background: white;
+}
+.modal .window #message {
+    display: none;
+    color: white;
+    background: rgb(202, 60, 60);
+    padding: 1em;
+    border-radius: 0.3em;
+}
+.modal .window .close {
+    position: absolute;
+    color: rgb(202, 60, 60) !important;
+    right: 0.5em;
+    top: 0.5em;
+    cursor: pointer;
+}
+.modal input {
+    width: 100%;
+    margin-bottom: 1em;
+}
+.modal .fb-button {
+    color: white;
+    background: #4267b2;
+    border-radius: 0.3em;
+    padding: 0.5em 0.7em;
+}
+.modal .fb-button i {
+    font-size: 2em;
+    vertical-align: middle;
+}
+
+
+.box {
+    border: 1px solid lightgrey;
+    padding: 2em;
+}
+
+#sms-message {
+    color: white;
+    background: rgb(202, 60, 60);
+    padding: 1em;
+    border-radius: 0.3em;
+}
+
+
+
+/**
+Pure fixes
+ */
+.button-success,
+.button-error,
+.button-warning,
+.button-primary,
+.button-secondary {
+    color: white;
+    border-radius: 4px;
+    text-shadow: 0 1px 1px rgba(0, 0, 0, 0.2);
+}
+
+.button-success {
+    background: rgb(28, 184, 65); /* this is a green */
+}
+
+.button-error {
+    background: rgb(202, 60, 60); /* this is a maroon */
+}
+
+.button-warning {
+    background: rgb(223, 117, 20); /* this is an orange */
+}
+
+.button-primary {
+    background: #4267b2; /* this is a light blue */
+}
+.button-secondary {
+    background: rgb(66, 184, 221); /* this is a light blue */
+}

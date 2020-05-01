@@ -1,0 +1,18 @@
+nativendo_5dc905ae00039_conf={"uniqueId":"5dc905ae00039","identifier":"get-native","version":1200,"endpoints":{"b":"https:\/\/b.get-native.eu","c":"https:\/\/c.get-native.eu","d":"https:\/\/d.get-native.eu","s":"https:\/\/s.get-native.eu","t":"https:\/\/t.get-native.eu","p":"https:\/\/p.get-native.eu","cis":"https:\/\/cis.get-native.eu"},"cq":"?v=1200","p":[],"dmp":[],"abc":"1","path":{"js":"\/cdn\/asset\/js\/","css":"\/cdn\/asset\/css\/"},"options":{"tracking":{"inventory":true,"custom":{"wp":"wp"}},"acs":1}};
+(function() {
+var conf = nativendo_5dc905ae00039_conf, src = conf.endpoints.c + conf.path.js + 'loader.js' + conf.cq;
+try {
+var pl  = document.createElement('link');
+pl.href = src;
+pl.rel  = 'preload';
+pl.as   = 'script';
+document.head.appendChild(pl);
+} catch (e) {}
+var s   = document.createElement('script');
+s.type  ='text/javascript';
+s.async = true;
+s.src   = src;
+s.setAttribute('data-nativendo-instance', '5dc905ae00039');
+var sc = document.getElementsByTagName('script')[0];
+sc.parentNode.insertBefore(s, sc);
+})();

@@ -1,0 +1,288 @@
+/**
+ * @version    2.7.x
+ * @package    OCM
+ * @author     JoomlaWorks http://www.joomlaworks.net
+ * @copyright  Copyright (c) 2006 - 2016 JoomlaWorks Ltd. All rights reserved.
+ * @license    GNU/GPL license: http://www.gnu.org/copyleft/gpl.html
+ */
+
+var $OCM = jQuery.noConflict();
+
+$OCM(document).ready(function(){
+
+	// Magnific popup
+	if(typeof($OCM.magnificPopup) !== 'undefined') {
+		// --- Backwards compatibility for users with overrides - START ---
+
+		// First remove possible attached events of the core modal in case it is loaded by a third party extension
+		$OCM('.itemImage a.modal, .itemEditLink a.modal, .catItemEditLink a.modal, .catItemAddLink a.modal, .userItemAddLink a.modal, .userItemEditLink a.modal, .ocmUserBlockActions a.modal, .ocmUserBlockRenderedMenu a.modal, .commentToolbar a.modal').unbind('click');
+
+		// Item image
+		$OCM('.itemImage a.modal').magnificPopup({type:'image', image: {titleSrc : function() {return '';}}});
+
+		// Edit links
+		$OCM('.itemEditLink a.modal, .catItemEditLink a.modal, .catItemAddLink a.modal, .userItemAddLink a.modal, .userItemEditLink a.modal').magnificPopup({type:'iframe', modal: true});
+
+		// Any other link
+		$OCM('.ocmUserBlockActions a.modal, .ocmUserBlockRenderedMenu a.modal, .commentToolbar a.modal').magnificPopup({type:'iframe'});
+
+		// --- Backwards compatibility for users with overrides - FINISH ---
+
+		// New layouts
+		// Image
+		$OCM('[data-ocm-modal="image"]').magnificPopup({type:'image', image: {titleSrc : function() {return '';}}});
+		// Edit links
+		$OCM('[data-ocm-modal="edit"]').magnificPopup({type:'iframe', modal: true});
+		// Rest links
+		$OCM('[data-ocm-modal="iframe"]').magnificPopup({type:'iframe'});
+	}
+
+	// Generic function to get URL params passed in .js script include
+	function getUrlParams(targetScript, varName) {
+		var scripts = document.getElementsByTagName('script');
+		var scriptCount = scripts.length;
+		for (var a = 0; a < scriptCount; a++) {
+			var scriptSrc = scripts[a].src;
+			if (scriptSrc.indexOf(targetScript) >= 0) {
+				varName = varName.replace(/[\[]/, "\\\[").replace(/[\]]/, "\\\]");
+				var re = new RegExp("[\\?&]" + varName + "=([^&#]*)");
+				var parsedVariables = re.exec(scriptSrc);
+				if (parsedVariables !== null) {
+					return parsedVariables[1];
+				}
+			}
+		}
+	}
+
+	// Set the site root path
+	var OCMSitePath = getUrlParams('ocm.frontend.js', 'sitepath');
+
+	// Comments
+	$OCM('#comment-form').submit(function(event){
+		event.preventDefault();
+		$OCM('#formLog').empty().addClass('formLogLoading');
+		$OCM.ajax({
+			url: $OCM('#comment-form').attr('action'),
+			type: 'post',
+			dataType: 'json',
+			data: $OCM('#comment-form').serialize(),
+			success: function(response){
+				$OCM('#formLog').removeClass('formLogLoading').html(response.message).addClass(response.cssClass);
+				if(typeof(Recaptcha) != "undefined"){
+					Recaptcha.reload();
+				}
+				if (response.refresh) {
+					window.location.reload();
+				}
+			}
+		});
+	});
+
+	$OCM('.commentRemoveLink').click(function(event){
+		event.preventDefault();
+		var element = $OCM(this);
+		$OCM(element).parent().addClass('commentToolbarLoading');
+		$OCM.ajax({
+			url: $OCM(element).attr('href'),
+			type: 'post',
+			data: $OCM('#comment-form input:last').serialize(),
+			success: function(response){
+				$OCM(element).parent().removeClass('commentToolbarLoading');
+				if(response=='true'){
+					$OCM(element).parent().parent().remove();
+				}
+			}
+		});
+	});
+
+	$OCM('.commentApproveLink').click(function(event){
+		event.preventDefault();
+		var element = $OCM(this);
+		$OCM(element).parent().addClass('commentToolbarLoading');
+		$OCM.ajax({
+			url: $OCM(element).attr('href'),
+			type: 'post',
+			data: $OCM('#comment-form input:last').serialize(),
+			success: function(response){
+				$OCM(element).parent().removeClass('commentToolbarLoading');
+				if(response=='true'){
+					$OCM(element).parent().parent().removeClass('unpublishedComment');
+				}
+			}
+		});
+	});
+
+	$OCM('.ocmReportUserButton').click(function(event){
+		event.preventDefault();
+		if (confirm(OCMLanguage[0])) {
+			var element = $OCM(this);
+			$OCM(element).parent().addClass('commentToolbarLoading');
+			$OCM.ajax({
+				url: $OCM(element).attr('href'),
+				type: 'GET',
+				success: function(response){
+					$OCM(element).parent().removeClass('commentToolbarLoading');
+					alert(response);
+				}
+			});
+		}
+
+	});
+
+	$OCM('#ocmReportCommentForm').submit(function(event){
+		event.preventDefault();
+		$OCM('#ocmReportCommentFormLog').empty().addClass('formLogLoading');
+		$OCM.ajax({
+			url: $OCM('#ocmReportCommentForm').attr('action'),
+			type: 'post',
+			data: $OCM('#ocmReportCommentForm').serialize(),
+			success: function(response){
+				$OCM('#formLog').removeClass('formLogLoading').html(response).css('display','block');
+				if(typeof(Recaptcha) != "undefined"){
+					Recaptcha.reload();
+				}
+			}
+		});
+	});
+
+	// Text Resizer
+	$OCM('#fontDecrease').click(function(event){
+		event.preventDefault();
+		$OCM('.itemFullText').removeClass('largerFontSize');
+		$OCM('.itemFullText').addClass('smallerFontSize');
+	});
+	$OCM('#fontIncrease').click(function(event){
+		event.preventDefault();
+		$OCM('.itemFullText').removeClass('smallerFontSize');
+		$OCM('.itemFullText').addClass('largerFontSize');
+	});
+
+	// Smooth Scroll
+	$OCM('.ocmAnchor').click(function(event){
+		event.preventDefault();
+		var target = this.hash;
+		$OCM('html, body').stop().animate({
+			scrollTop: $OCM(target).offset().top
+		}, 500);
+	});
+
+	// Rating
+	$OCM('.itemRatingForm a').click(function(event){
+		event.preventDefault();
+		var itemID = $OCM(this).attr('rel');
+		if(!itemID) {
+			itemID = $OCM(this).data('id');
+		}
+		var log = $OCM('#itemRatingLog' + itemID).empty().addClass('formLogLoading');
+		var rating = $OCM(this).html();
+		$OCM.ajax({
+			url: OCMSitePath+"index.php?option=com_ocm&view=item&task=vote&format=raw&user_rating=" + rating + "&itemID=" + itemID,
+			type: 'get',
+			success: function(response){
+				log.removeClass('formLogLoading');
+				log.html(response);
+				$OCM.ajax({
+					url: OCMSitePath+"index.php?option=com_ocm&view=item&task=getVotesPercentage&format=raw&itemID=" + itemID,
+					type: 'get',
+					success: function(percentage){
+						$OCM('#itemCurrentRating' + itemID).css('width', percentage + "%");
+						setTimeout(function(){
+							$OCM.ajax({
+								url: OCMSitePath+"index.php?option=com_ocm&view=item&task=getVotesNum&format=raw&itemID=" + itemID,
+								type: 'get',
+								success: function(response){
+									log.html(response);
+								}
+							});
+						}, 2000);
+					}
+				});
+			}
+		});
+	});
+
+	// Classic popup
+	$OCM('.classicPopup').click(function(event){
+		event.preventDefault();
+		if($OCM(this).attr('rel')){
+			var json = $OCM(this).attr('rel');
+			json = json.replace(/'/g, '"');
+			var options = $OCM.parseJSON(json);
+		} else {
+			var options = {x:900,y:600}; /* use some default values if not defined */
+		}
+		window.open($OCM(this).attr('href'),'OCMPopUpWindow','width='+options.x+',height='+options.y+',menubar=yes,resizable=yes');
+	});
+
+	// Live search
+	$OCM('div.ocmLiveSearchBlock form input[name=searchword]').keyup(function(event){
+		var parentElement = $OCM(this).parent().parent();
+		if($OCM(this).val().length>3 && event.key!='enter'){
+			$OCM(this).addClass('ocmSearchLoading');
+			parentElement.find('.ocmLiveSearchResults').css('display','none').empty();
+			parentElement.find('input[name=t]').val($OCM.now());
+			parentElement.find('input[name=format]').val('raw');
+			var url = 'index.php?option=com_ocm&view=itemlist&task=search&' + parentElement.find('form').serialize();
+			parentElement.find('input[name=format]').val('html');
+			$OCM.ajax({
+				url: url,
+				type: 'get',
+				success: function(response){
+					parentElement.find('.ocmLiveSearchResults').html(response);
+					parentElement.find('input[name=searchword]').removeClass('ocmSearchLoading');
+					parentElement.find('.ocmLiveSearchResults').css('display', 'block');
+				}
+			});
+		} else {
+			parentElement.find('.ocmLiveSearchResults').css('display','none').empty();
+		}
+	});
+
+	// Calendar
+	if (typeof($OCM().live) == "undefined") {
+		$OCM('.ocmCalendarBlock').on('click', '.calendarNavLink', function(event){
+			event.preventDefault();
+			var parentElement = $OCM(this).parent().parent().parent().parent();
+			var url = $OCM(this).attr('href');
+			parentElement.empty().addClass('ocmCalendarLoader');
+			$OCM.ajax({
+				url: url,
+				type: 'post',
+				success: function(response){
+					parentElement.html(response);
+					parentElement.removeClass('ocmCalendarLoader');
+				}
+			});
+		});
+	}
+	else {
+		$OCM('a.calendarNavLink').live('click',  function(event){
+			event.preventDefault();
+			var parentElement = $OCM(this).parent().parent().parent().parent();
+			var url = $OCM(this).attr('href');
+			parentElement.empty().addClass('ocmCalendarLoader');
+			$OCM.ajax({
+				url: url,
+				type: 'post',
+				success: function(response){
+					parentElement.html(response);
+					parentElement.removeClass('ocmCalendarLoader');
+				}
+			});
+		});
+	}
+
+	// Generic Element Scroller (use .ocmScroller in the container and .ocmScrollerElement for each contained element)
+	$OCM('.ocmScroller').css('width',($OCM('.ocmScroller').find('.ocmScrollerElement:first').outerWidth(true))*$OCM('.ocmScroller').children('.ocmScrollerElement').length);
+
+});
+
+// Equal block heights for the "default" view
+$OCM(window).load(function () {
+	var blocks = $OCM('.subCategory, .ocmEqualHeights');
+	var maxHeight = 0;
+	blocks.each(function(){
+		maxHeight = Math.max(maxHeight, parseInt($OCM(this).css('height')));
+	});
+	blocks.css('height', maxHeight);
+});

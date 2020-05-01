@@ -1,0 +1,63 @@
+function getCookie(c_name) {
+    var c_value = document.cookie;
+    var c_start = c_value.indexOf(" " + c_name + "=");
+    if (c_start == -1) {
+        c_start = c_value.indexOf(c_name + "=");
+    }
+    if (c_start == -1) {
+        c_value = null;
+    }
+    else {
+        c_start = c_value.indexOf("=", c_start) + 1;
+        var c_end = c_value.indexOf(";", c_start);
+        if (c_end == -1) {
+            c_end = c_value.length;
+        }
+        c_value = unescape(c_value.substring(c_start, c_end));
+    }
+    return c_value;
+}
+document.getCookie = getCookie
+
+function checkCookie(allowed_type) {
+    var status = false;
+    //Poskusim prebrati cookie allow_cookies
+    var cookie_value = getCookie("ALLOW_COOKIES");
+    if (cookie_value != null && cookie_value.indexOf(allowed_type) >= 0) {
+        //Ustrezno nastavim spremenljivko status, ce je allow_cookies vrednost za izbrano grupo cookijev nastavljena
+        status = true;
+    }
+    return status;
+}
+document.checkCookie = checkCookie
+
+function setCookies() {
+    /* setCookieOnDomain("//www.delo.si/assets/delo_v3/notice/cookie_setter.php", 'analiticni=on&oglasevalski=on&druzabni=on');
+    setCookieOnDomain("//www.slovenskenovice.si/sites/slovenskenovice.si/themes/slovenskenovice/notice/cookie_setter.php", 'analiticni=on&oglasevalski=on&druzabni=on');
+    setCookieOnDomain("//www.deloindom.si/sites/deloindom.si/themes/deloindom/notice/cookie_setter.php", 'analiticni=on&oglasevalski=on&druzabni=on');
+    setCookieOnDomain("//www.polet.si/sites/polet.si/themes/polet/notice/cookie_setter.php", 'analiticni=on&oglasevalski=on&druzabni=on');
+    setCookieOnDomain("//www.pogledi.si/sites/pogledi.si/themes/pogledi/notice/cookie_setter.php", 'analiticni=on&oglasevalski=on&druzabni=on');
+    setCookieOnDomain("//www.micna.si/cookie_setter.php", 'analiticni=on&oglasevalski=on&druzabni=on'); */
+    setCookieOnDomain("//www.delo.si/cookie/cookie_setter.php?d=delo.si",'analiticni=on&oglasevalski=on&druzabni=on');
+    setCookieOnDomain("//www.slovenskenovice.si/cookie/cookie_setter.php?d=slovenskenovice.si",'analiticni=on&oglasevalski=on&druzabni=on');
+}
+document.setCookies = setCookies
+
+function setCookieOnDomain(cookie_setter_script, data_string) {
+    var iframe = document.createElement("iframe");
+    iframe.src = cookie_setter_script + "&" + data_string;
+    iframe.name = "frame1";
+    iframe.id = "frame1";
+    iframe.style.cssText = "display:none;";
+    document.body.appendChild(iframe);
+    document.body.style.cssText = "padding-bottom: 0px;";
+    // document.querySelectorAll('.notice').forEach(function(element) {
+    //     element.style.cssText = "display: none;";
+    // });
+    var nodes = document.querySelectorAll('.notice')
+    for(x in nodes) {
+        if(nodes[x].style)
+            nodes[x].style.display = 'none'
+    }
+}
+document.setCookieOnDomain = setCookieOnDomain

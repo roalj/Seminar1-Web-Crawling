@@ -1,0 +1,219 @@
+
+<!-- saved from url=(0155)https://www.slovenskenovice.si/novice/slovenija/clanek/aljaz-ki-je-prebolel-covid-19-lahko-se-ze-pocutis-izvrstno-pa-pride-spet-udar-in-ne-mores-nic-300411 -->
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"><script type="text/javascript">window.lnlCallbackName='LiveNetLife_AdCallback_ok';</script><script type="text/javascript">
+
+//what is the callback name?
+var callBackName = window.lnlCallbackName!=null?window.lnlCallbackName:'LiveNetLife_AdCallback';
+//console.log('callBackName:'+callBackName);
+
+//prepare handler
+function newAds(){
+    //debugger;
+    //console.log( "new ads");
+    if (!ads) 
+        return;//nothing to do
+
+    keys = Object.keys(ads);
+    if (keys.length <= 0)
+        return; //nothing to do
+    
+    var Query2CrowdAds = {};
+    var CrowdAd2Queries = {};
+    var isMultiAd = false;
+    var possibleMultiAdMain = null;
+    var index;
+    for (index = 0; index < keys.length; index ++){
+        try {
+            var ad = ads[keys[index]];
+            ad.url = ads[keys[index]].target + ads[keys[index]].UTM;
+            ad.adDescriber = ads[keys[index]].adDesc;
+            ad.title = ads[keys[index]].text;
+            ad.summary = ads[keys[index]].text2;
+            ad.nrVisitors = ads[keys[index]].nrVisitors ? ads[keys[index]].nrVisitors : 0;
+            ad.nrVisitorsInChat = ads[keys[index]].nrVisitorsInChat ? ads[keys[index]].nrVisitorsInChat : 0;
+            ad.similarity = -1;
+            isMultiAd |= ad.isDetail == "true";
+            if (!(ad.isDetail == "true"))
+                possibleMultiAdMain = keys[index];
+            if (ad.CrowdAdUrlRegex.length > 0){
+                //debugger;
+                queries = ad.CrowdAdUrlRegex.split(';');
+                queries.forEach(function(query){
+                    if (query == null || query.length <= 0) 
+                        return;
+                    if (!Query2CrowdAds.hasOwnProperty(query))
+                        Query2CrowdAds[query] = [];
+                    Query2CrowdAds[query].push(keys[index]);
+                   if (!CrowdAd2Queries.hasOwnProperty(keys[index]))
+                        CrowdAd2Queries[keys[index]] = {};
+                    CrowdAd2Queries[keys[index]][query]={nrVisitors:0,nrVisitorsInChat:0};  
+                });
+ 
+            }
+        }
+        catch (eee){}
+    }
+
+    var goodAds = [];
+    if (!isMultiAd){
+        var mrnd = Math.random();
+        var sum = 0;
+        for (index = 0; index < keys.length; index ++){
+            var p = ads[keys[index]].p ? ads[keys[index]].p : 0;
+            sum += ads[keys[index]].p;
+            if (mrnd < sum)
+                break;
+        }
+
+        if (index >= keys.length) //misconfiguration, no ad was selected
+            index = Math.floor(keys.length * Math.random());
+
+        //console.log("index:"+index+" sum:"+sum+" mrnd:"+mrnd);
+
+        //var index = 1;
+
+        try{
+        var i = parseInt(window.top.location.href.match(/lnlAdIndex=([0-9]*)/)[1]);
+        if (i < keys.length)
+            index = i;
+        }
+        catch (eererere){}
+     
+        goodAds.push(keys[index]);
+    }
+    else {
+        if (possibleMultiAdMain == null)
+            throw "Cound not find main creative in LNL ad";
+        goodAds.push(possibleMultiAdMain);
+        for (index = 0; index < keys.length; index ++){
+            if (keys[index] != possibleMultiAdMain)
+                goodAds.push(keys[index]);
+        }
+    }
+  
+    //console.log('We have prepared a list of '+goodAds.length+' creatives, first one is:'+JSON.stringify(ads[goodAds[0]]));
+
+    for (index = 0; index < goodAds.length; index ++){
+        ad = ads[goodAds[index]];
+        if (ad.creativeId == null)
+            ad.creativeId = goodAds[index];
+        if (ad.endDate!=null && (/(counter)/.test(ad.title) || /(counter)/.test(ad.summary))){
+            howManySeconds = Math.floor((new Date(ad.endDate) - new Date())/1000);
+       	    remaining=getRemainingString(howManySeconds);
+            originalTitle = ad.title;
+            originalSummary = ad.summary;
+            ad.title = originalTitle==null?null: originalTitle.replace('(counter)',remaining);
+            ad.summary = originalSummary==null?null: originalSummary.replace('(counter)',remaining);
+            adWithCounter = ad;  
+    	    setInterval(function () {
+               	howManySeconds = Math.floor((new Date(adWithCounter.endDate) - new Date())/1000);
+                remaining=getRemainingString(howManySeconds);
+               	adWithCounter.title = originalTitle==null?null: originalTitle.replace('(counter)',remaining);
+        	adWithCounter.summary = originalSummary==null?null:originalSummary.replace('(counter)',remaining);
+                window.parent[callBackName](adWithCounter);
+                //console.log(remaining + ": " + adWithCounter.title);
+	    }, 1000);
+        }
+
+        window.parent[callBackName](ad);
+    }
+
+    if (Object.keys(Query2CrowdAds).length > 0) {
+	window.LiveNetLife_AutoStart=true;
+        window.LiveNetLife_EnableXMPP=false;
+        window.LiveNetLife_TraceLevel=10;
+        window.LiveNetLife_EnableChat=false;
+        //window.LiveNetLife_ForwardServerProxy='%%CLICK_URL_UNESC%%';
+	window.LiveNetLife_EnableAPI = true; //true;
+	window.LiveNetLife_PageURL='http://ad.livenetlife.com/'+ads[goodAds[0]].liDesc;
+ 	window.LiveNetLife_PageTitle=ads[goodAds[0]].title;
+        window.LiveNetLife_PagePictureUrl=ads[goodAds[0]].image;
+        window.LiveNetLife_UserDefinedContent = 'livenetlife ad';
+
+//        try {
+//            window.LiveNetLife_UserDefinedContent=top.window.LNLParameters.UserDefinedContent;
+//        }
+//        catch (eeerrr) {}
+
+        window.LiveNetLife_EnableLinks=false;
+
+        var goodQueries = {};
+        for (index = 0; index < goodAds.length; index ++){
+            Object.keys(CrowdAd2Queries[goodAds[index]]).forEach(function(query) {
+               goodQueries[query] = 1;
+            });
+        }
+        window.LiveNetLife_AggUrlQueryRegex=Object.keys(goodQueries).join(';');
+
+
+        //console.log('LiveNetLife_AggUrlQueryRegex:'+ LiveNetLife_AggUrlQueryRegex);
+
+        //console.log('LNL Ad: window.LiveNetLife_AggUrlQueryRegex='+window.LiveNetLife_AggUrlQueryRegex);
+
+        window.LNLAPI = {};
+        LNLAPI.doCall = true;
+        LNLAPI.EventHandler = function(eventName, param){
+       	    //console.log("EVENT: "+eventName+': '+(param?JSON.stringify(param.state):""));
+            if (/AggQuery/.test(eventName)){
+                //debugger;
+                if (param && param.state && Query2CrowdAds.hasOwnProperty(param.state.Query) && Query2CrowdAds[param.state.Query].length > 0 ){
+                    for (index = 0; index < Query2CrowdAds[param.state.Query].length; index ++){
+                        adId = Query2CrowdAds[param.state.Query][index];
+                        CrowdAd2Queries[adId][param.state.Query].nrVisitors = param.state.NrUsers;
+                        CrowdAd2Queries[adId][param.state.Query].nrVisitorsInChat = param.state.NrUsersInChat;
+                        totalUsers = 0;
+                        totalUsersInChat = 0;
+                        for (var q in CrowdAd2Queries[adId]){
+                            totalUsers += CrowdAd2Queries[adId][q].nrVisitors;
+                            totalUsersInChat += CrowdAd2Queries[adId][q].nrVisitorsInChat;
+                        }
+                        ad = ads[adId];
+                        ad.nrVisitors = totalUsers;
+                        ad.nrVisitorsInChat = totalUsersInChat;
+                        window.parent[callBackName](ad);
+                    }
+                    
+                }
+            } 
+       }   
+
+
+       //finally ad livenetlife to this iframe
+       var lnl = document.createElement('script');
+       lnl.type = 'text/javascript';
+       lnl.async = true;
+       lnl.src = (parent.location.protocol == 'https:' ? 'https:' : parent.location.protocol ) +'//bin.livenetlife.com/?CodeId=5dd77848-66e1-4c76-9836-1b291fc89a40&LNLReferer='+encodeURIComponent(window.location.href);
+       lnl.id='LiveNetLife';
+       var s = document.getElementsByTagName('script')[0];
+       s.parentNode.insertBefore(lnl, s);
+    }
+}
+
+function getRemainingString(durationSeconds){
+        temp = durationSeconds;
+        seconds = parseInt(temp % 60, 10);
+        temp -= seconds;
+        temp /=60;
+        
+        minutes = parseInt(temp % 60, 10)
+        temp -= minutes;
+        temp /=60
+        
+        hours = parseInt(temp % 24, 10)
+        temp -= hours;
+        temp /=24
+
+        days = Math.floor(temp);
+
+        //days = days < 10 ? "0" + days : days;
+        hours = hours < 10 ? "0" + hours : hours;
+        minutes = minutes < 10 ? "0" + minutes : minutes;
+        seconds = seconds < 10 ? "0" + seconds : seconds;
+
+        return  (days != 0 ? days+'d ':' ') + hours + ':' + minutes + ":" + seconds;
+}
+
+
+</script>
+<script type="text/javascript">window.ads = {"ce6929b9-4eed-4a02-b421-d5cef5f67f23":{"image":"\/\/d2d5246zxep45f.cloudfront.net\/?u=https%3a%2f%2fs-img.mgid.com%2fg%2f5248262%2f492x328%2f0x0x492x328%2faHR0cDovL2ltZ2hvc3RzLmNvbS90LzIwMTktMTEvMTU2ODA1LzBkOTAxODFhYmE2NzgzOGM4NTkxYmI2ZjRiNmE5ZjhhLmpwZw**.webp","imageWidth":"-1","imageHeight":"-1","imageFocusX":"-1","imageFocusY":"-1","imageFocusR":"-1","text":"Investiraj $75 zaslužiš celo 3800!","text2":"","textProlog":"","textEpilog":"","UTM":"","target":"https:\/\/adserver.livenetlife.com\/fwd.aspx?q=H4sIAAAAAAAEAHVSy27bMBD8Guu2Bt%2biDkIPTdEgaFGgQVv0FPCxtGnJkiJSduGv7zo59FSA3J3d4ZCLAT%2b42JvO8dYqDr5DBBXRgJfCgUkstTqiTV43oQ9oOtH5DhRiBOWYAK8Eh6gDJp1Mm4RsVkz9sdal7KTbiUTrer3uyzhfcCoDTvMlB9yXTMQ7JvDO5tNdEEY34UDAjSd3gyHDCWFZ0c8jjhBIEoF3MLrjMENBuBE7h63mAvl2WUudZlgcKXJEKAtW2KJbIU8wIZznFQtMOYBkTHHeuPHQ1%2bN5%2bVOaaz8PzdCDEYJrRqHZ%2bhhMq2TsWhQMvbOmFczpjkmTVKtlEKzVwrX6xTvlqB3RaZVE9JgkT2Qrcyxqy4MLSlsmuyZjz5uwhJ7t6ZXWct3U%2fp9P50OO%2bzCfqTwccy2UtVBWGEHo7pkxqrOU2d22NVC0wlouhb13loUCf9syHXc0%2bSWeYPr5GL89VhnD%2bvigfr8mUeRk3BZwm%2bTn9Yuph0%2bKPT1%2ffV380%2fP2o35XH88zltP6aycMGUkXGRaENy6A5c4C5%2bjA%2b1aBUAY7E4SziUY0tdLZh7xiqFQtm6cZ3%2fT%2f%2bwQmLGei%2bV9mQzYGhwIAAA%3d%3d","CrowdAdUrlRegex":"","CrowdAdMinUsers":"0","impressionViewPixelImg":"https%3a%2f%2fadserver.livenetlife.com%2fimp.aspx%3fq%3dH4sIAAAAAAAEACWQzW7DIBAGnybcNuIfc0B9lGqBpSF2jGWcuMrTlyrSHkbfaC77hTlYj8JNWkD0RKAzWYhKItjCizOZphINSyGR9dJHD5oog0YuIWopIJtExRTrilRspxJux7H1i8KLLOPO87z2pb1o7TOt7VUTXXsd4sMDPrbe%252f4O04ErzAFzu%252bIa5wp1g2ym2hRZII8kgPCx4mxt0gvewLT2P2qG%252bX3s%252f1gYbjqJmgr7RAc%252bMO9QVVoJH26nDWhMozrUQDJefcNwe229nZ2gzm4NwQmrFnZzYM%252bRknVbZO5KcIk7WSY7Gc2WLdkYlyZ2R6Mx3RI1jzoRGF5kjFSXKeCtHns0kEiZtJq48qxQEO8IfzblgfXYBAAA%253d","impressionPixelImg":"","adDesc":"H4sIAAAAAAAEAKXOO47DMAwE0BMxIGl+pNKW7BPsBSxLbFIECJD7J0W2W0DFTsGKeDPXlVsexJDcGkh4h9Q4QC3FQkHYXepWd6zGG9Yi6JhR68F5Ud6OPVexfJInIfhIA6QPg7bwCRYYrn2kaDozrmGZP1NAxuggJzI0YYKu1wgN8+BlZuCNFD3RtOzn+RpTbPbwuE+Jb+CP85t\/zyD3YzUpda1ayFcqxTLarqQJxfkN8hzaL+EBAAA=","lineItemId":"69a17841-b9ee-4de6-b32a-6f0f75de8fb5","isPrebid":"False","predefinedNumberText":"","predefinedIconNumber":"0"}};window.newAds();</script>
+<script src="chrome-extension://mooikfkahbdckldjjndioackbalphokd/assets/prompt.js"></script></head><body marginwidth="0" marginheight="0"></body></html>

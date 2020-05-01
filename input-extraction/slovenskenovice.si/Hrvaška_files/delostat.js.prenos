@@ -1,0 +1,10 @@
+window.addEventListener("load", function(event) {
+    if(!delostat_data) var delostat_data= {};
+    var oReq = new XMLHttpRequest();
+    oReq.timeout = 500;
+    oReq.addEventListener("load", function(){});
+    oReq.open('POST', '//services.delo.si/delostat/api/log');
+    oReq.setRequestHeader("Content-Type", "application/json");
+    oReq.send(JSON.stringify(delostat_data));
+});
+    

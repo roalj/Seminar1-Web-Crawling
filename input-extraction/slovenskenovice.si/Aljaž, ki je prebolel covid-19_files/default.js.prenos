@@ -1,0 +1,398 @@
+var eventLoadedLibs = {
+	'reading_time': 'lib/reading-time'
+};
+utils_eventListeners = {};
+
+utils_eventTrigger = function (name, event) {
+	jQuery.each(utils_eventListeners, function (n, e) {
+		if (n.split('\.')[0] === name) {
+			e.forEach(function (callback) {
+				callback.call(window, event);
+			});
+		}
+	});
+};
+utils_eventOn = function (names, callback) {
+	names.split(',').map(function (name) {
+		return name.trim();
+	}).forEach(function (name) {
+		if (name in eventLoadedLibs) {
+			require([eventLoadedLibs[name]], function (lib) {
+				utils_eventTrigger(name, lib.instance);
+			});
+		}
+		if (!(name in utils_eventListeners)) {
+			utils_eventListeners[name] = [];
+		}
+		utils_eventListeners[name].push(callback);
+	});
+};
+jQuery(function () {
+	var idmenu = jQuery('.Toolbar').attr('data-module');
+	var _self = {
+		//namespace: 'v-supermenu',
+		data: (site_root || '/') + 'modules/mod_supermenu/json/menu_' + idmenu + lIu.flag + '.json'
+	};
+	_self.init = function (element, mobileInit) {
+		var _menu = {
+			element: jQuery(element)
+		};
+
+		_menu.search = jQuery('.Search');
+		_menu.translate = '-120%';
+		_menu.content = jQuery('.SuperMenu');
+		_menu.container = _menu.content.find('.js-superMenuContainer');
+
+		_menu.loader = {
+			state: 0,
+			data: {},
+			callback: function () {},
+			call: function () {
+				_menu.loader.callback(_menu.loader.data);
+			},
+			load: function (callback) {
+				_menu.loader.callback = callback;
+				if (_menu.loader.state === 2) {
+					_menu.loader.call();
+					return;
+				} else if (_menu.loader.state === 1) {
+					return;
+				}
+				_menu.loader.state = 1;
+				jQuery.get(_self.data, function (result) {
+					_menu.loader.state = 2;
+					_menu.loader.data = result;
+					if (!mobileInit) {
+						renderContent(_menu);
+					}
+					_menu.loader.call();
+				});
+			}
+		};
+		if (!mobileInit) {
+			_menu.loader.load(function () {
+				return;
+			});
+			_menu.searchInput = _menu.search.find('.Search-input').on('keydown', function (e) {
+				if (e.which === 27) {
+					e.preventDefault();
+					_menu.searchInput.val('');
+					_menu.search.removeClass('is-visible');
+				}
+			});
+			utils_eventOn('click.toolbar', function (e) {
+				if (e.target.not('.js-toggleSearch, .js-closeSearch').length) {
+					_menu.search.removeClass('is-visible');
+				}
+			});
+			jQuery('.js-toggleSearch, .js-closeSearch').on('click', function (e) {
+				e.preventDefault();
+				if (_menu.isOpen || _menu.isOpening || !_menu.search.hasClass('is-visible')) {
+					hideContent(_menu);
+					_menu.search.addClass('is-visible');
+					_menu.searchInput.focus();
+				} else {
+					_menu.search.removeClass('is-visible');
+				}
+			});
+
+			var menuItems = _menu.element.find('.js-showSuperMenu');
+
+			menuItems.each(function () {
+				var item = jQuery(this);
+				var subnav = item.attr('data-subnav');
+
+				item.on('mouseenter.v.supermenu.show', function () {
+					showContent(_menu, subnav);
+				});
+
+			});
+
+			_menu.element.add(_menu.content).on('mouseleave.v.supermenu.hide', function () {
+				TweenMax.delayedCall(0.1, hideContent, [_menu]);
+			});
+
+			utils_eventOn('toolbar_change', function () {
+				TweenMax.delayedCall(0, hideContent, [_menu]);
+			});
+			_menu.element.add(_menu.content).on('mouseenter', function () {
+				TweenMax.killDelayedCallsTo(hideContent);
+			})
+
+			_menu.nav = _menu.element.find('.Nav--horizontal');
+			_menu.navActive = _menu.nav.find('.Nav-item.is-active');
+			_menu.hoverLine = _menu.nav.find('.Nav-hover').removeClass('is-hidden');
+			var menuNavActivePOsition = _menu.navActive.position();
+			if (typeof menuNavActivePOsition === 'undefined') {
+				var menuNavActivePOsition = {
+					top: 0,
+					left: 0
+				};
+
+			}
+			TweenMax.set(_menu.hoverLine, {x: menuNavActivePOsition.left, scaleX: _menu.navActive.width() / 100});
+			_menu.navItems = _menu.nav.find('.Nav-item').on('mouseenter', function () {
+				var item = jQuery(this);
+				TweenMax.to(_menu.hoverLine, 0.25, {x: item.position().left, scaleX: item.width() / 100, ease: 'Sine.easeOut'});
+			});
+			_menu.nav.on('mouseleave', function () {
+				TweenMax.to(_menu.hoverLine, 0.25, {x: menuNavActivePOsition.left, scaleX: _menu.navActive.width() / 100});
+			});
+		} else {
+			_self.data = (site_root || '/') + 'modules/mod_supermenu/json/menu_mobile_' + idmenu + lIu.flag + '.json';
+			_menu.isOpen = false;
+			jQuery('.js-hamburgerMenu').click(function (e) {
+				e.preventDefault();
+				if (_menu.isOpen) {
+					jQuery('.Toolbar-mobileCat.is-open').removeClass('is-open');
+					// hideContent(_menu);
+				}
+				_menu.isOpen = !_menu.isOpen;
+				jQuery('body').toggleClass('js-mobileMenuOpen', _menu.isOpen);
+			});
+			/* end mobile menu */
+
+			_menu.items = _menu.element.find('.js-showSuperMenu');
+
+			if (typeof (idmenu) !== 'undefined') {
+				_menu.loader.load(function () {
+					setMobileContent(_menu);
+				});
+			}
+		}
+
+	};
+
+	function renderContent(_menu) {
+		jQuery.each(_menu.loader.data, function (subnav, section) {
+
+			var container = _menu.container.clone(true).appendTo(_menu.container.parent()).attr('data-subnav', subnav);
+
+			var tpl = '<div class="Header-left">\
+                    <div class="SuperMenu-navigation SuperMenu-navigation--' + subnav + (section.is_special ? ' SuperMenu-navigation--alt' : '') + '">\
+                        <div class="SuperMenu-wrapNav">\
+                            <nav class="Nav Nav--vertical">\
+                                <ul>\
+                                <li class="Nav-item"><a class="Nav-link" href="' + section.itemlink + '">' + section.itemtitle + '</a></li>';
+
+			jQuery.each(section.subnavigation, function (k, v) {
+				if (v.user_data) {
+					tpl += '<li class="Nav-item Nav-item--person">\
+                        <a href="' + lIu.location + '" class="Nav-person">\
+                            <div class="Nav-personName">' + lIu.name + '</div>\
+                        </a>\
+                    </li>';
+				} else if (!v.link) {
+					tpl += '<li class="Nav-item Nav-item--title' + (v.has_divider ? ' Nav-item--separator' : '') + '">' + v.title + '</li>';
+				} else {
+					var profileLinkAttribute = '';
+					if (typeof v.profile_target !== 'undefined' && v.profile_target.length > 0) {
+						profileLinkAttribute = 'profile_target="' + v.profile_target + '"';
+					}
+					tpl += '<li ' + profileLinkAttribute + ' class="Nav-item' + (v.has_divider ? ' Nav-item--separator' : '') + (v.is_special ? ' Nav-item--special' : '') + (v.is_brand ? ' Nav-item--brand' : '') + (v.class_name ? ' Nav-item--' + v.class_name : '') + '">\
+                                <a href="' + v.link + '" class="Nav-link' + (v.class_name ? ' Nav-link--' + v.class_name : '') + (v.icon ? ' Nav-link--icon' : '') + (v.is_special ? ' js-specialSeen' : '') + '">' + (v.icon ? '<i class="NavIcon NavIcon--' + v.icon + '"></i>' : '') + v.title + '</a>\
+                            </li>';
+				}
+			});
+
+
+			tpl += '            </ul>\
+                            </nav>\
+                        </div>\
+                    </div>\
+                </div>';
+
+			jQuery.each(section.items, function (k, v) {
+
+				if (v.is_weather) {
+
+					tpl += '<div class="col-xs-2">\
+                                <div class="tmp-weather">\
+                                    <img data-src="images/example-images/weather.png">\
+                                </div>\
+                            </div>';
+
+				} else if (v.is_bob_dneva) {
+
+					// tpl += '<div class="col-xs-2">\
+					//             <div class="tmp-bobDneva">\
+					//                 <a href="#"><img data-src="images/example-images/bob-dneva.png"></a>\
+					//             </div>\
+					//         </div>';
+
+					tpl += '<div class="col-xs-2">\
+                                <div class="BobDneva BobDneva--small">\
+                                    <p>Že res, da so si eni pridno polnili mošnje in kašče, a saj so bili nenehno v pripravljenosti, s svinčnikom za ušesom in osedlanim konjem pred vrati, če bi bilo treba nemudoma zdrveti v šolo. In to ni od muh, kar gasilce vprašajte pa policaje in zdravnike.</p>\
+                                    <div class="BobDneva-author">\
+                                        <strong>Dr. Friderik Klampfer</strong>\
+                                        filozof\
+                                    </div>\
+                                    <div class="BobDneva-logo">\
+                                        <img src="images/example-images/bobdneva-logo.png">\
+                                    </div>\
+                                </div>\
+                            </div>';
+
+				} else if (v.is_banner) {
+
+					tpl += '<div class="col-xs-2">\
+                                <div class="tmp-banner">\
+                                    <img data-src="images/example-images/banner-2.png">\
+                                </div>\
+                            </div>';
+
+				} else {
+
+					if (typeof v.bgpos !== 'undefined') {
+						var style = 'style="background-image: url(' + v.image + '); background-position: ' + v.bgpos + '"';
+					} else {
+						var style = '';
+					}
+
+					var blank = site_root + 'templates/oslobodjenje/images/blank.png';
+
+                                        var target = "";
+                                        if(v.cross_link !== undefined && v.cross_link.length !== 0){
+                                            v.link = v.cross_link;
+                                            target = "target=\"_blank\"";
+                                        }
+
+					tpl += '<div class="col-xs-3">\
+                                <div class="ArticleItem ArticleItem--small">\
+                                    <a class="ArticleItem-linkWrapper" href="' + v.link + '" '+ target +'>\
+                                        <div class="ArticleItem-imageWrapper">\
+                                            <div class="old-focus">\
+                                                <img class="ArticleItem-image" data-src="' + v.image + '" ' + style + '>\
+                                            </div>\
+                                        </div>\
+                                    </a>\
+                                    <a href="' + v.categoryLink + '" class="Article-section">' + v.section + '</a>\
+                                    <div class="ArticleItem-title"><a href="' + v.link + '" '+ target +'>' + v.title + '</a></div>\
+                                    <div class="Timestamp">' + v.dateCreated + '</div>\
+                                </div>\
+                            </div>';
+
+				}
+			});
+
+			container.html(tpl);
+
+		});
+	}
+
+	function showContent(_menu, subnav) {
+
+		TweenMax.killDelayedCallsTo(hideContent);
+		_menu.loader.load(function () {
+			setContent(_menu, _menu.loader.data[subnav], subnav);
+		});
+		if (_menu.isOpening) {
+			return;
+		}
+		_menu.isOpening = true;
+		TweenMax.killTweensOf(_menu.content);
+		TweenMax.to(_menu.content, 0.25, {delay: 0.25, y: '0%', ease: 'Sine.easeOut', onComplete: function () {
+				_menu.isOpening = false;
+				_menu.isOpen = true;
+			}});
+	}
+
+	function hideContent(_menu) {
+
+		_menu.isOpen = false;
+		_menu.isOpening = false;
+		TweenMax.killTweensOf(_menu.content);
+		TweenMax.to(_menu.content, 0.15, {y: _menu.translate, ease: 'Sine.easeIn'});
+
+	}
+
+	function setContent(_menu, section, subnav) {
+		var contents = _menu.content.find('.js-superMenuContainer[data-subnav]');
+		var content = contents.filter('[data-subnav="' + subnav + '"]');
+
+		if (!content.length) {
+			TweenMax.delayedCall(0.25, hideContent, [_menu]);
+			return;
+		}
+		if (content.hasClass('is-active')) {
+			return;
+		}
+		contents.removeClass('is-active');
+		content.addClass('is-active');
+		content.find('img[data-src]').each(function () {
+			var img = jQuery(this);
+			img.attr('src', img.attr('data-src')).removeAttr('data-src');
+		});
+		TweenMax.set(content.children().slice(2), {opacity: 1, x: '0px'});
+		TweenMax.staggerFrom(content.children().slice(2), 0.2, {opacity: 0, x: '-10px', ease: 'Sine.easeInOut'}, 0.025);
+		TweenMax.set(content.find('.Nav-item'), {opacity: 1, y: '0px'});
+		TweenMax.staggerFrom(content.find('.Nav-item'), 0.05, {opacity: 0, y: '-10px', ease: 'Sine.easeInOut'}, 0.025);
+	}
+	function setMobileContent(_menu) {
+		_menu.items.each(function () {
+			var item = jQuery(this);
+			var category = item.attr('data-subnav');
+			var link = item.attr('href');
+			var data = _menu.loader.data[category];
+			if (!data) {
+				return;
+			}
+
+			var subItem = jQuery('<div class="Toolbar-mobileCat Toolbar-mobileCat--' + category + '"><ul></ul></div>').appendTo(_menu.element);
+			var subList = subItem.find('ul');
+			var mainItem = jQuery('<li class="Nav-item Nav-item--main"><i class="fa fa-arrow-circle-left"></i><a href="' + link + '" class="Nav-link"><span>' + item.text() + '</span></a></li>').appendTo(subList);
+
+			jQuery.each(data.subnavigation, function (index, navItem) {
+				var el = jQuery('<li class="Nav-item"><a href="' + navItem.link + '" class="Nav-link"></i>' + navItem.title + '</a></li>').appendTo(subList);
+				if (navItem.has_divider) {
+					el.addClass('Nav-item--separator');
+				}
+			});
+
+			item.on('click', function (e) {
+				e.preventDefault();
+				subItem.addClass('is-open');
+			});
+			mainItem.find('.fa').on('click', function (e) {
+				e.preventDefault();
+				subItem.removeClass('is-open');
+			});
+		});
+	}
+	_self.init(jQuery('#v-supermenu'), false);
+	_self.init(jQuery('#v-mobileSupermenu'), true);
+    
+    // transform supermenu to Fixed position after scroll
+    var makeStickyMenu = function () {
+        var windowWidth = jQuery(window).width();
+        var ToolbarContainerHeight = jQuery('.Toolbar-container').css('height');
+        if (windowWidth >= 1010) {
+            var scrollHeight = 276;
+        } else {
+            var scrollHeight = 0;
+        }
+        jQuery(window).scroll(function () {
+            var scroll = jQuery(this).scrollTop();
+            if (scroll < scrollHeight) {
+                jQuery('.SuperMenu').css({position: 'absolute'});
+                jQuery('.Toolbar-container').css({'padding-top': '0'});
+                jQuery('.Toolbar').removeClass('menufixed');
+            } else {
+                jQuery('.SuperMenu').css({position: 'fixed'});
+                jQuery('.Toolbar-container').css({'padding-top': ToolbarContainerHeight});
+                jQuery('.Toolbar').addClass('menufixed');
+            }
+        });
+    };
+    makeStickyMenu();
+    jQuery(window).resize(function () {
+        makeStickyMenu();
+        var scroll = jQuery(this).scrollTop();
+        if (scroll < 276) {
+            jQuery('.SuperMenu').css({position: 'absolute'});
+            jQuery('.Toolbar-container').css({'padding-top': '0'});
+            jQuery('.Toolbar').removeClass('menufixed');
+        }
+    });
+
+});
