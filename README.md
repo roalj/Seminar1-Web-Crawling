@@ -8,15 +8,19 @@ Extract data from 3 different websites using 3 different methods:
 Python 3.6
 
 To be able to run this project you need following packages:
-* re
-* lxml
-* json
-* bs4
-* difflib
-* sys
+```python
+import re
+from lxml import html
+import json
+from bs4 import BeautifulSoup
+import difflib
+import sys
+```
 
 After packages are installed you can run the script using this command:
+```bash
 python run-extraction.py (A/B/C)
+```
 
 A, B or C represents the method that you want to use to retrieve data
 # Fetcher
