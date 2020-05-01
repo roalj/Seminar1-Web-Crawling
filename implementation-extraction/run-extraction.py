@@ -89,15 +89,16 @@ def regular_expression_overstock(pages):
         for match in matches:
             contents.append(match[0] + "\n" + match[1])
 
+        dataItem = []
         for i in range(len(titles)):
-            dataItem = {
+            dataItem.append({
                 "Title": titles[i],
                 "ListPrice": list_prices[i],
                 "Price": prices[i],
                 "Saving": savings[i],
                 "SavingPercent": saving_percents[i],
                 "Content": contents[i]
-            }
+            })
             print("Output object:\n%s" % json.dumps(dataItem, indent=8, ensure_ascii=False))
 
 
@@ -130,15 +131,16 @@ def xpath_overstock(pages):
             savings.append(saving_element.text[:-6])
             saving_percents.append(saving_element.text[-5:])
 
+        dataItem = []
         for i in range(len(titles)):
-            dataItem = {
+            dataItem.append({
                 "Title": titles[i],
                 "ListPrice": list_prices[i],
                 "Price": prices[i],
                 "Saving": savings[i],
                 "SavingPercent": saving_percents[i],
                 "Content": contents[i]
-            }
+            })
             print("Output object:\n%s" % json.dumps(dataItem, indent=8, ensure_ascii=False))
 
 
