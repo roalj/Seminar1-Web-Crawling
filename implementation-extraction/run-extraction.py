@@ -4,9 +4,8 @@ import json
 from bs4 import BeautifulSoup
 import difflib
 import sys
-
 from MyParser import MyHTMLParser, DifferentLines
-from collections import defaultdict
+
 
 PLACE_HOLDER = "#text"
 PH_SCRIPT = "#script"
@@ -299,14 +298,29 @@ def get_ratio(start_tag1, start_tag2):
 
 
 # TODO find first start tag?
-def is_similar_start_tag(x, y):
+def is_similar_start_tag(x, y, min_ratio):
     if len(x.parse_content) < 1 or len(y.parse_content) < 1:
         return False
 
-    # ratio = get_ratio(x.parse_content[0], y.parse_content[0])
-    #return (not (x.get_first_content() == y.get_first_content())) \
+
     return x.parse_content[0].is_same_start_tag(y.parse_content[0]) \
-           and get_ratio(x.parse_content[0], y.parse_content[0]) > 0
+           and get_ratio(x.parse_content[0], y.parse_content[0]) > min_ratio
+
+
+def is_same_tag(x, y, min_ratio):
+    if len(x.parse_content) < 1 or len(y.parse_content) < 1:
+        return False
+    if len(x.parse_content) != len(y.parse_content):
+        return False
+
+    return x.parse_content[0].is_same_start_tag(y.parse_content[0]) \
+           and get_ratio(x.parse_content[0], y.parse_content[0]) > min_ratio
+
+
+def get_oposite(char):
+    if char == "-":
+        return "+"
+    return '-'
 
 def get_duplicates_with_diff_content(diff_with_content):
     result = []
@@ -317,11 +331,26 @@ def get_duplicates_with_diff_content(diff_with_content):
         if first.line.startswith("-") and second.line.startswith("+") or (
                 first.line.startswith("+") and second.line.startswith("-")
         ):
-            if is_similar_start_tag(first, second):
+            if is_similar_start_tag(first, second, 0):
                 result.append(first)
                 result.append(second)
                 i += 2
             else:
+                opp = get_oposite(first.line[1])
+                for j in range(i+2, i+5, 1):
+                    if j < len(diff_with_content):
+                        second = diff_with_content[j]
+                        if second.line.startswith(opp):
+                            if is_same_tag(first, second, 0):
+                                result.append(first)
+                                result.append(second)
+                                i = j+1
+                                continue
+
+
+
+                #is one of the next ones really simillar
+
                 i += 1
         else:
             i += 1
@@ -441,16 +470,16 @@ def get_page_wrapper(_page1, _page2):
 
     return soup
 
-"""
-rtv1 = open('../input-extraction/rtvslo.si/Audi A6 50 TDI quattro_ nemir v premijskem razredu - RTVSLO.si.html', 'r', encoding='utf8').read()
+
+"""rtv1 = open('../input-extraction/rtvslo.si/Audi A6 50 TDI quattro_ nemir v premijskem razredu - RTVSLO.si.html', 'r', encoding='utf8').read()
 rtv2 = open('../input-extraction/rtvslo.si/Volvo XC 40 D4 AWD momentum_ suvereno med najboljše v razredu - RTVSLO.si.html', 'r', encoding='utf8').read()
 overstock1 = open('../input-extraction/overstock.com/jewelry01.html', 'r', encoding="ISO-8859-1").read()
 overstock2 = open('../input-extraction/overstock.com/jewelry02.html', 'r', encoding="ISO-8859-1").read()
 slovenskenovice1 = open('../input-extraction/slovenskenovice.si/Aljaž, ki je prebolel covid-19_ Lahko se že počutiš izvrstno, pa pride spet udar in ne moreš nič.html', 'r', encoding='utf-8').read()
 slovenskenovice2 = open('../input-extraction/slovenskenovice.si/Hrvaška podaljšala ukrep, ki se tiče tudi Slovencev.html', 'r', encoding='utf-8').read()
-"""
 
-
+wrapper_rtv = get_page_wrapper(slovenskenovice1, slovenskenovice2)
+print(str(wrapper_rtv))"""
 if __name__ == '__main__':
     method = sys.argv[1]
 
