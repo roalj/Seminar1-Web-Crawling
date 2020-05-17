@@ -10,15 +10,53 @@ from stopwords import *
 nltk.download('punkt')
 
 
+def clear_db():
+    cur = conn.cursor()
+    cur.execute('DELETE FROM posting')
+    cur.execute('DELETE FROM IndexWord ')
+    cur.close()
+
+
 def remove_non_text_elements(soup):
     for script in soup(["script", "style", "link", "iframe", "noscript"]):
         script.decompose()
 
 
-def save_to_db(word, document_name, frequency, indexes):
+def tokenize(text):
+    tokens = []
+    for word in word_tokenize(text):
+        if word not in stop_words_slovene:
+            tokens.append(word)
+    return tokens
+
+
+# A index v HTML dokemtnu al samo v tekstu?
+def process(text):
+    tokens = tokenize(text)
+    already_processed = []
+    for token in tokens:
+        if token not in already_processed:
+            word = Word(token, 'docName', tokens.count(token),
+                        [i for i in range(len(text_only)) if text_only.startswith(token, i)])
+            already_processed.append(token)
+            save_data_to_db(word)
+
+
+def word_already_exists(word, cur):
+    sql = "SELECT * FROM IndexWord where word = %s"
+    cur.execute(sql, (word,))
+    record_exists = cur.fetchone()
+    return record_exists
+
+
+def save_data_to_db(word_object):
     cur = conn.cursor()
-    cur.execute("INSERT INTO inverted-index.Posting (word, documentName, frequency, indexes) VALUES (?,?,?,?)",
-                (word, document_name, frequency, indexes))
+    if not word_already_exists(word_object.word, cur):
+        cur.execute("INSERT INTO IndexWord values (%s);", (word_object.word,))
+
+    cur.execute("INSERT INTO Posting (word, documentName, frequency, indexes) VALUES (%s,%s,%s,%s)",
+                (
+                word_object.word, word_object.document, word_object.frequency, ','.join(map(str, word_object.indexes))))
     cur.close()
 
 
@@ -39,6 +77,7 @@ conn = psycopg2.connect(
     password='admin'
 )
 conn.autocommit = True
+clear_db()
 
 rtv1 = open('../input-indexing/podatki.gov.si/podatki.gov.si.1.html', 'r',
             encoding='utf8').read()
@@ -46,19 +85,4 @@ rtv1 = open('../input-indexing/podatki.gov.si/podatki.gov.si.1.html', 'r',
 soup = BeautifulSoup(rtv1, 'html.parser').findAll('body')[0]
 remove_non_text_elements(soup)
 text_only = soup.get_text().lower()
-
-tokens = []
-for word in word_tokenize(text_only):
-    if word not in stop_words_slovene:
-        tokens.append(word)
-
-dict_list = []
-
-# A index v HTML dokemtnu al samo v tekstu?
-for token in tokens:
-    if not any(word.word == token for word in dict_list):
-        dict_list.append(Word(token, 'docName', tokens.count(token), [i for i in range(len(text_only)) if text_only.startswith(token, i)]))
-
-
-for word in dict_list:
-    print(word.word)
+process(text_only)
