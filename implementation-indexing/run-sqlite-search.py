@@ -180,6 +180,7 @@ start_time = time.time()  # začetni čas
 a = fetch_data(input_query.split(" "))  # loop_over(search_query.split(" "))
 grouped = query_group(a)
 result = create_snippet_indexes(grouped)
+end_time = (time.time() - start_time)  # končni čas
 
 print("Results for a query:" + input_query)
 print("\t Results found in ", end_time)
