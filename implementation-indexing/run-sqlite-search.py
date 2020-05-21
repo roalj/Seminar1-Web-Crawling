@@ -179,13 +179,13 @@ cur = conn.cursor()
 start_time = time.time()  # začetni čas
 a = fetch_data(input_query.split(" "))  # loop_over(search_query.split(" "))
 grouped = query_group(a)
-end_time = (time.time() - start_time)  # končni čas
 result = create_snippet_indexes(grouped)
 
 print("Results for a query:" + input_query)
 print("\t Results found in ", end_time)
-print("\t Frequenices\tDocument\tSnippet")
+print('{:<15s}{:<50s}{:<200}'.format('Frequenices', 'Document', 'Snippet'))
+print('{:<15s}{:<50s}{:<200}'.format('-'*13, '-'*48, '-'*100))
 for r in result:
-    print(r)
+    print('{:<15s}{:<50s}{:<200}'.format(str(r.frequency), r.document, r.snippet.replace('\n', ' ').replace('\r', '')))
 
 1
