@@ -7,7 +7,7 @@ services:
     restart: always
     environment:
       POSTGRES_PASSWORD: admin
-      POSTGRES_USER: crawldb
+      POSTGRES_USER: postgres
     volumes:
     - ./db/init-scripts:/docker-entrypoint-initdb.d/
     ports:
