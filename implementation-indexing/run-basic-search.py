@@ -6,6 +6,7 @@ from nltk import word_tokenize
 import nltk
 import re
 from stopwords import *
+import os
 
 nltk.download('punkt')
 
@@ -31,12 +32,12 @@ def tokenize(text):
 
 
 # A index v HTML dokemtnu al samo v tekstu?
-def process(text):
+def process(text, web_page):
     tokens = tokenize(text)
     already_processed = []
     for token in tokens:
         if token not in already_processed:
-            word = Word(token, 'docName', tokens.count(token),
+            word = Word(token, web_page, tokens.count(token),
                         [i for i in range(len(text_only)) if text_only.startswith(token, i)])
             already_processed.append(token)
             save_data_to_db(word)
@@ -79,10 +80,18 @@ conn = psycopg2.connect(
 conn.autocommit = True
 clear_db()
 
-rtv1 = open('../input-indexing/podatki.gov.si/podatki.gov.si.1.html', 'r',
-            encoding='utf8').read()
+#
+for web_site in os.listdir('../input-indexing'):
+    for file in os.listdir('../input-indexing/' + web_site):
+        if file.endswith('.html'):
+            html_page = open('../input-indexing/' + web_site + '/' + file, 'r',
+                        encoding='utf8').read()
+            soup = BeautifulSoup(html_page, 'html.parser').findAll('body')[0]
+            remove_non_text_elements(soup)
+            text_only = soup.get_text().lower()
+            process(text_only, web_site + '/' + file)
 
-soup = BeautifulSoup(rtv1, 'html.parser').findAll('body')[0]
-remove_non_text_elements(soup)
-text_only = soup.get_text().lower()
-process(text_only)
+
+
+
+
