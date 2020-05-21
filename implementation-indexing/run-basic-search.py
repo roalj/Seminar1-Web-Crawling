@@ -131,7 +131,6 @@ class Word:
 
 start_time = time.time()  # začetni čas
 dict = defaultdict(list)
-i = 1
 for web_site in os.listdir('../input-indexing'):
     for file in os.listdir('../input-indexing/' + web_site):
         if file.endswith('.html'):
@@ -141,9 +140,6 @@ for web_site in os.listdir('../input-indexing'):
             remove_non_text_elements(soup)
             text_only = soup.get_text().lower()
             process(text_only, web_site + '/' + file)
-            # if i > 60:
-            #     break
-            i+=1
 
 end_time = (time.time() - start_time)  # končni čas
 

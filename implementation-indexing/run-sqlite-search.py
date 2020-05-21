@@ -26,22 +26,11 @@ def remove_non_text_elements(soup):
 
 def tokenize(text):
     tokens = []
-    for word in word_tokenize(text):
+    for word in word_tokenize(text.lower()):
         if word not in stop_words_slovene:
             tokens.append(word)
     return tokens
 
-
-# A index v HTML dokemtnu al samo v tekstu?
-def process(text, web_page):
-    tokens = tokenize(text)
-    already_processed = []
-    for token in tokens:
-        if token not in already_processed:
-            word = Word(token, web_page, tokens.count(token),
-                        [i for i in range(len(text)) if text.startswith(token, i)])
-            already_processed.append(token)
-            save_data_to_db(word)
 
 
 def word_already_exists(word, cur):
@@ -177,7 +166,7 @@ def parse_to_text(file_path):
 input_query = "social services"
 cur = conn.cursor()
 start_time = time.time()  # začetni čas
-a = fetch_data(input_query.split(" "))  # loop_over(search_query.split(" "))
+a = fetch_data(tokenize(input_query))  # loop_over(search_query.split(" "))
 grouped = query_group(a)
 result = create_snippet_indexes(grouped)
 end_time = (time.time() - start_time)  # končni čas
