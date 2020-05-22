@@ -5,6 +5,7 @@ from nltk import word_tokenize
 import nltk
 from bs4 import BeautifulSoup
 import psycopg2
+import sys
 
 global conn
 
@@ -162,20 +163,21 @@ def parse_to_text(file_path):
     remove_non_text_elements(soup)
     return soup.get_text().lower()
 
+if __name__ == '__main__':
+    input_query = sys.argv[1]
 
-input_query = "social services"
-cur = conn.cursor()
-start_time = time.time()  # začetni čas
-a = fetch_data(tokenize(input_query))  # loop_over(search_query.split(" "))
-grouped = query_group(a)
-result = create_snippet_indexes(grouped)
-end_time = (time.time() - start_time)  # končni čas
+    cur = conn.cursor()
+    start_time = time.time()  # začetni čas
+    a = fetch_data(tokenize(input_query))  # loop_over(search_query.split(" "))
+    grouped = query_group(a)
+    result = create_snippet_indexes(grouped)
+    end_time = (time.time() - start_time)  # končni čas
 
-print("Results for a query:" + input_query)
-print("\t Results found in ", end_time)
-print('{:<15s}{:<50s}{:<200}'.format('Frequenices', 'Document', 'Snippet'))
-print('{:<15s}{:<50s}{:<200}'.format('-'*13, '-'*48, '-'*100))
-for r in result:
-    print('{:<15s}{:<50s}{:<200}'.format(str(r.frequency), r.document, r.snippet.replace('\n', ' ').replace('\r', '')))
+    print("Results for a query:" + input_query)
+    print("\t Results found in ", end_time)
+    print('{:<15s}{:<50s}{:<200}'.format('Frequenices', 'Document', 'Snippet'))
+    print('{:<15s}{:<50s}{:<200}'.format('-'*13, '-'*48, '-'*100))
+    for r in result:
+        print('{:<15s}{:<50s}{:<200}'.format(str(r.frequency), r.document, r.snippet.replace('\n', ' ').replace('\r', '')))
 
-1
+    1

@@ -8,6 +8,7 @@ import re
 from stopwords import *
 import os
 import time
+import sys
 
 nltk.download('punkt')
 OFF_SET_NEIGHBOUR = 20
@@ -127,38 +128,38 @@ class Word:
         self.frequency = frequency
 
 
-# MAIN
+if __name__ == '__main__':
+    input_query = sys.argv[1]
 
-start_time = time.time()  # začetni čas
-dict = defaultdict(list)
-for web_site in os.listdir('../input-indexing'):
-    for file in os.listdir('../input-indexing/' + web_site):
-        if file.endswith('.html'):
-            html_page = open('../input-indexing/' + web_site + '/' + file, 'r',
-                             encoding='utf8').read()
-            soup = BeautifulSoup(html_page, 'html.parser').findAll('body')[0]
-            remove_non_text_elements(soup)
-            text_only = soup.get_text().lower()
-            process(text_only, web_site + '/' + file)
+    start_time = time.time()  # začetni čas
+    dict = defaultdict(list)
+    for web_site in os.listdir('../input-indexing'):
+        for file in os.listdir('../input-indexing/' + web_site):
+            if file.endswith('.html'):
+                html_page = open('../input-indexing/' + web_site + '/' + file, 'r',
+                                 encoding='utf8').read()
+                soup = BeautifulSoup(html_page, 'html.parser').findAll('body')[0]
+                remove_non_text_elements(soup)
+                text_only = soup.get_text().lower()
+                process(text_only, web_site + '/' + file)
 
-end_time = (time.time() - start_time)  # končni čas
+    end_time = (time.time() - start_time)  # končni čas
 
-input_query = "social services"
-input_tokens = tokenize(input_query)
-a = []
-for input_token in input_tokens:
-    a.append(dict[input_token])
+    input_tokens = tokenize(input_query)
+    a = []
+    for input_token in input_tokens:
+        a.append(dict[input_token])
 
-joinedList = []
-for words in a:
-    joinedList += words
+    joinedList = []
+    for words in a:
+        joinedList += words
 
-grouped = query_group(joinedList)
-result = create_snippet_indexes(grouped)
-print("Results for a query:" + input_query)
-print("\t Results found in ", end_time)
-print('{:<15s}{:<50s}{:<200}'.format('Frequenices', 'Document', 'Snippet'))
-print('{:<15s}{:<50s}{:<200}'.format('-'*13, '-'*48, '-'*100))
-for r in result:
-    print('{:<15s}{:<50s}{:<200}'.format(str(r.frequency), r.document, r.snippet.replace('\n', ' ').replace('\r', '')))
+    grouped = query_group(joinedList)
+    result = create_snippet_indexes(grouped)
+    print("Results for a query:" + input_query)
+    print("\t Results found in ", end_time)
+    print('{:<15s}{:<50s}{:<200}'.format('Frequenices', 'Document', 'Snippet'))
+    print('{:<15s}{:<50s}{:<200}'.format('-'*13, '-'*48, '-'*100))
+    for r in result:
+        print('{:<15s}{:<50s}{:<200}'.format(str(r.frequency), r.document, r.snippet.replace('\n', ' ').replace('\r', '')))
 
