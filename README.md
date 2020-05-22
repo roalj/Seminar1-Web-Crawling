@@ -9,7 +9,7 @@ import time
 from nltk import word_tokenize
 import nltk
 from bs4 import BeautifulSoup
-import psycopg2
+import sqlite3
 import sys
 ```
 Create database for indexing: 

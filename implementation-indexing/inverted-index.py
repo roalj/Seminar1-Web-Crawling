@@ -1,21 +1,38 @@
 from collections import defaultdict
 
-import psycopg2
 from bs4 import BeautifulSoup
 from nltk import word_tokenize
 import nltk
 import re
 from stopwords import *
 import os
+import sqlite3
 
 nltk.download('punkt')
 
 
-def clear_db():
-    cur = conn.cursor()
-    cur.execute('DELETE FROM posting')
-    cur.execute('DELETE FROM IndexWord ')
-    cur.close()
+def create_db():
+    c = conn.cursor()
+
+    c.execute("DROP TABLE IF EXISTS IndexWord")
+    c.execute("DROP TABLE IF EXISTS Posting")
+
+    c.execute("""
+        CREATE TABLE IndexWord (
+          word TEXT PRIMARY KEY
+        );
+        """)
+
+    c.execute("""        
+        CREATE TABLE Posting (
+          word TEXT NOT NULL,
+          documentName TEXT NOT NULL,
+          frequency INTEGER NOT NULL,
+          indexes TEXT NOT NULL,
+          PRIMARY KEY(word, documentName),
+          FOREIGN KEY (word) REFERENCES IndexWord(word)
+        );""")
+    c.close()
 
 
 def remove_non_text_elements(soup):
@@ -44,7 +61,7 @@ def process(text, web_page):
 
 
 def word_already_exists(word, cur):
-    sql = "SELECT * FROM IndexWord where word = %s"
+    sql = "SELECT * FROM IndexWord where word = ?"
     cur.execute(sql, (word,))
     record_exists = cur.fetchone()
     return record_exists
@@ -53,9 +70,9 @@ def word_already_exists(word, cur):
 def save_data_to_db(word_object):
     cur = conn.cursor()
     if not word_already_exists(word_object.word, cur):
-        cur.execute("INSERT INTO IndexWord values (%s);", (word_object.word,))
+        cur.execute("INSERT INTO IndexWord values (?);", (word_object.word,))
 
-    cur.execute("INSERT INTO Posting (word, documentName, frequency, indexes) VALUES (%s,%s,%s,%s)",
+    cur.execute("INSERT INTO Posting (word, documentName, frequency, indexes) VALUES (?,?,?,?)",
                 (
                 word_object.word, word_object.document, word_object.frequency, ','.join(map(str, word_object.indexes))))
     cur.close()
@@ -71,14 +88,11 @@ class Word:
 
 global conn
 # connect to the db
-conn = psycopg2.connect(
-    host='localhost',
-    database='inverted-index',
-    user='postgres',
-    password='admin'
-)
-conn.autocommit = True
-clear_db()
+conn = sqlite3.connect('inverted-index.db')
+conn.isolation_level = None
+
+
+create_db()
 
 #
 for web_site in os.listdir('../input-indexing'):

@@ -3,20 +3,13 @@ from stopwords import *
 from nltk import word_tokenize
 import nltk
 from bs4 import BeautifulSoup
-import psycopg2
+import sqlite3
 import sys
 
 global conn
 
 nltk.download('punkt')
 OFF_SET_NEIGHBOUR = 20
-
-
-def clear_db():
-    cur = conn.cursor()
-    cur.execute('DELETE FROM posting')
-    cur.execute('DELETE FROM IndexWord ')
-    cur.close()
 
 
 def remove_non_text_elements(soup):
@@ -33,7 +26,7 @@ def tokenize(text):
 
 
 def word_already_exists(word, cur):
-    sql = "SELECT * FROM IndexWord where word = %s"
+    sql = "SELECT * FROM IndexWord where word = ?"
     cur.execute(sql, (word,))
     record_exists = cur.fetchone()
     return record_exists
@@ -44,7 +37,7 @@ def save_data_to_db(word_object):
     if not word_already_exists(word_object.word, cur):
         cur.execute("INSERT INTO IndexWord values (%s);", (word_object.word,))
 
-    cur.execute("INSERT INTO Posting (word, documentName, frequency, indexes) VALUES (%s,%s,%s,%s)",
+    cur.execute("INSERT INTO Posting (word, documentName, frequency, indexes) VALUES (?,?,?,?)",
                 (
                     word_object.word, word_object.document, word_object.frequency,
                     ','.join(map(str, word_object.indexes))))
@@ -60,13 +53,8 @@ class Word:
 
 
 # connect to the db
-conn = psycopg2.connect(
-    host='localhost',
-    database='postgres',
-    user='postgres',
-    password='admin'
-)
-conn.autocommit = True
+conn = sqlite3.connect('inverted-index.db')
+conn.isolation_level = None
 
 
 def get_query(_words):
