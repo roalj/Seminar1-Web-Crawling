@@ -49,6 +49,9 @@ class SearchResult:
     def __str__(self):
         return str(self.frequency) + '\t' + self.document + "\t" + self.snippet
 
+    def __lt__(self, other):
+        return self.frequency > other.frequency
+
     def create_snippet(self):
         _text = parse_to_text('../input-indexing/' + self.document)
         for start_index in self.indexes:
@@ -159,7 +162,12 @@ if __name__ == '__main__':
     print("Results for a query:" + input_query)
     print("\t Results found in ", end_time)
     print('{:<15s}{:<50s}{:<200}'.format('Frequenices', 'Document', 'Snippet'))
-    print('{:<15s}{:<50s}{:<200}'.format('-'*13, '-'*48, '-'*100))
+    print('{:<15s}{:<50s}{:<200}'.format('-' * 13, '-' * 48, '-' * 100))
+    result.sort()
+    i = 0
     for r in result:
-        print('{:<15s}{:<50s}{:<200}'.format(str(r.frequency), r.document, r.snippet.replace('\n', ' ').replace('\r', '')))
-
+        i += 1
+        if i > 6:
+            break
+        print('{:<15s}{:<50s}{:<200}'.format(str(r.frequency), r.document,
+                                             r.snippet.replace('\n', ' ').replace('\r', '')))
