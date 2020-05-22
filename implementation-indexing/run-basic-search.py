@@ -1,10 +1,8 @@
 from collections import defaultdict
 
-import psycopg2
 from bs4 import BeautifulSoup
 from nltk import word_tokenize
 import nltk
-import re
 from stopwords import *
 import os
 import time
