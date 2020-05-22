@@ -1,3 +1,48 @@
+# Data Indexing
+##Installation
+Python 3.7
+
+To be able to run this project you need following packages:
+```python
+import os
+import time
+from nltk import word_tokenize
+import nltk
+from bs4 import BeautifulSoup
+import psycopg2
+import sys
+```
+Create database for indexing: 
+```sql
+CREATE TABLE IndexWord (
+  word TEXT PRIMARY KEY
+);
+
+CREATE TABLE Posting (
+  word TEXT NOT NULL,
+  documentName TEXT NOT NULL,
+  frequency INTEGER NOT NULL,
+  indexes TEXT NOT NULL,
+  PRIMARY KEY(word, documentName),
+  FOREIGN KEY (word) REFERENCES IndexWord(word)
+);
+```
+Then run the following script to fill the database with data
+```bash
+inverted-index.py
+```
+
+Then you can search for word(s) from the above generated database:
+```bash
+run-sqlite-search.py "SEARCH_PARAM"
+```
+
+or you can search it directly from files by:
+```bash
+run-basic-search.py "SEARCH_PARAM"
+```
+
+
 # Data Extraction
 Extract data from 3 different websites using 3 different methods:
 * Regular expressions (A)
